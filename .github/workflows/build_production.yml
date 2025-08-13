@@ -15,7 +15,7 @@ jobs:
       with:
         image: finlex                                                                                                      
         tags: latest ${{ github.sha }}                                                                                  
-        containerfiles: ./Containerfile
+        containerfiles: ./Dockerfile
         build-args: |
           GIT_SHA=${{ github.sha }}
           STAGING=false         
