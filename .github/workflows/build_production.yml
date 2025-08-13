@@ -14,7 +14,7 @@ jobs:
       uses: redhat-actions/buildah-build@v2
       with:
         image: finlex                                                                                                      
-        tags: latest ${{ github.sha }}                                                                                  
+        tags: production ${{ github.sha }}                                                                                  
         containerfiles: ./Dockerfile
         build-args: |
           GIT_SHA=${{ github.sha }}
