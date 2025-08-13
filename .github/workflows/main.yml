@@ -19,5 +19,5 @@ jobs:
       
       - name: Build and push the Docker image
         run: |-
-           docker build -t toska/finlex:$GITHUB_SHA .
-           docker push toska/finlex:$GITHUB_SHA
+           docker build -t finlex:$GITHUB_SHA .
+           docker push finlex:$GITHUB_SHA
