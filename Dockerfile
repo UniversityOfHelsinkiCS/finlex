@@ -1,12 +1,16 @@
 FROM node:24
-USER node
-WORKDIR /home/node/app
+WORKDIR /app
 
-COPY --chown=node:node ./backend/dist .
-COPY --chown=node:node ./backend/package.json .
-COPY --chown=node:node ./backend/package-lock.json .
-RUN npm --omit=dev --no-fund --no-audit --no-update-notifier ci
+COPY frontend ./frontend/
+COPY backend ./backend/
 
-EXPOSE 3001
+RUN npm --prefix ./frontend ci && \
+    npm --prefix ./frontend run build
 
-CMD ["node", "start.js"]
+RUN npm --prefix ./backend ci && \
+    npm --prefix ./backend run build
+
+COPY . .
+
+WORKDIR /app/backend
+CMD ["npm", "start"]
