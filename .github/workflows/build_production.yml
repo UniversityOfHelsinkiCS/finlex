@@ -27,4 +27,3 @@ jobs:
           registry: quay.io/toska
           username: toska+github
           password: ${{ secrets.QUAY_IO_TOKEN }}
-   
