@@ -1,4 +1,5 @@
 # SEB-yhteensopiva_finlex-lukija
+
 Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotantoprojekti/SEB-yhteensopiva_finlex-lukija/wiki)
 
 
