@@ -26,4 +26,4 @@ jobs:
           tags: ${{ steps.build-image.outputs.tags }}
           registry: quay.io/toska
           username: toska+github
-          password: ${{ secrets.QUAY_IO_TOKEN }}
+          password: ${{ secrets.AUTH_TOKEN }}
