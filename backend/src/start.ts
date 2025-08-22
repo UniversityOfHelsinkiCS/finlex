@@ -1,4 +1,4 @@
-// import cluster from 'node:cluster'
+import cluster from 'node:cluster'
 import { Worker } from 'node:cluster';
 import './util/config.js';
 
