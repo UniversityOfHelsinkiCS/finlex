@@ -58,9 +58,9 @@ if (cluster.isPrimary) {
       execArgv: process.execArgv,
       restartDelay: (code: number) => {
         if (code === 0) {
-          return 365 * 24 * 60 * 60 * 1000; // 1 vuosi
+          return Number.MAX_SAFE_INTEGER // something big
         } else {
-          return  365 * 24 * 60 * 60 * 1000; // 1 vuosi
+          return Number.MAX_SAFE_INTEGER
         }
       },
       onExit: (code: number) => {
