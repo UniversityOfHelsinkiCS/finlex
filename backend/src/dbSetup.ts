@@ -30,10 +30,10 @@ async function initDatabase() {
 if (process.env.NODE_ENV === 'test') {
   await setupTestDatabase()
 } else {
+  await initDatabase();
   const shouldExec = false;
 
   if(shouldExec){
-    await initDatabase();
     await deleteCollection('statutes', 'fin');
     await deleteCollection('statutes', 'swe');
     await deleteCollection('judgments', 'fin');
