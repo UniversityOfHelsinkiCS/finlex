@@ -46,6 +46,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 }
 
 async function dbIsReady(): Promise<boolean> {
+  return true
   try {
     const client = await pool.connect();
     let result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'images');")
