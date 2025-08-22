@@ -60,7 +60,7 @@ if (cluster.isPrimary) {
         if (code === 0) {
           return 365 * 24 * 60 * 60 * 1000; // 1 vuosi
         } else {
-          return 30 * 1000; // 30 sekuntia
+          return  365 * 24 * 60 * 60 * 1000; // 1 vuosi
         }
       },
       onExit: (code: number) => {
