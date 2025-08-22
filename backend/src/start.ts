@@ -58,7 +58,7 @@ if (cluster.isPrimary) {
       execArgv: process.execArgv,
       restartDelay: (code: number) => {
         if (code === 0) {
-          return 24 * 60 * 60 * 1000; // 1 päivä
+          return 365 * 24 * 60 * 60 * 1000; // 1 vuosi
         } else {
           return 30 * 1000; // 30 sekuntia
         }
@@ -74,6 +74,7 @@ if (cluster.isPrimary) {
       }
     }
   }
+
   function startByRole(role: string) {
     const { exec, execArgv, restartDelay, onExit } = ROLES[role];
     cluster.setupPrimary({
