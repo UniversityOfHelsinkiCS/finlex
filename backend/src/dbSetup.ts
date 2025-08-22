@@ -31,14 +31,18 @@ if (process.env.NODE_ENV === 'test') {
   await setupTestDatabase()
 } else {
   await initDatabase();
-  await deleteCollection('statutes', 'fin');
-  await deleteCollection('statutes', 'swe');
-  await deleteCollection('judgments', 'fin');
-  await deleteCollection('judgments', 'swe');
-  await syncStatutes('fin');
-  await syncStatutes('swe');
-  await syncJudgments('fin');
-  await syncJudgments('swe');
+  const shouldExec = false;
+
+  if(shouldExec){
+    await deleteCollection('statutes', 'fin');
+    await deleteCollection('statutes', 'swe');
+    await deleteCollection('judgments', 'fin');
+    await deleteCollection('judgments', 'swe');
+    await syncStatutes('fin');
+    await syncStatutes('swe');
+    await syncJudgments('fin');
+    await syncJudgments('swe');
+  }
 }
 console.log('Database setup done.');
 exit(0)
