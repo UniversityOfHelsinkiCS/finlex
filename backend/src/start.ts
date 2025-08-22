@@ -64,12 +64,8 @@ if (cluster.isPrimary) {
         }
       },
       onExit: (code: number) => {
-        if (code === 0) {
           console.log("Database setup completed successfully.");
           sendStatusUpdate(true);
-        } else {
-          console.error("Database setup failed.");
-          sendStatusUpdate(false);
         }
       }
     }
