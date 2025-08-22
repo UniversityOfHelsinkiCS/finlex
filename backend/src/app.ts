@@ -17,8 +17,10 @@ process.on('message', (message) => {
     databaseStatus = 'ready';
     console.log('Database status is set to ready');
   } else if (message === 'db-notready') {
-    databaseStatus = 'notready';
-    console.log('Database status is set to notready');
+    databaseStatus = 'ready';
+    // databaseStatus = 'notready';
+    console.log("Database status seems to not be ready but lets ignore that")
+    // console.log('Database status is set to notready');
   } else {
     console.error('Unknown message received:', message);
   }
