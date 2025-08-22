@@ -39,58 +39,58 @@ checkEnvVars(REQUIRED_ENV_VARS);
 checkNodeEnv(VALID_NODE_ENVS);
 
 
-// if (cluster.isPrimary) {
-//   const startFolder = process.argv[1].split('/').slice(0, -1).join('/');
-//   const fileType = process.env.NODE_ENV === 'development' ? 'ts' : 'js';
-//   const appFile: string = `${startFolder}/index.${fileType}`;
-//   const dbSetupFile: string = `${startFolder}/dbSetup.${fileType}`;
-//   const ROLES: {[key: string]: {exec: string, execArgv: string[], restartDelay(code: number): number, onExit(code: number): void}} = {
-//     app: {
-//       exec: appFile,
-//       execArgv: process.execArgv,
-//       restartDelay: () => {
-//         return 0
-//       },
-//       onExit: () => {}
-//     },
-//     dbSetup: {
-//       exec: dbSetupFile,
-//       execArgv: process.execArgv,
-//       restartDelay: (code: number) => {
-//         if (code === 0) {
-//           return 24 * 60 * 60 * 1000; // paiva
-//         } else {
-//           return  24 * 60 * 60 * 1000; // paiva
-//         }
-//       },
-//       onExit: (code: number) => {
-//         console.log("Database setup completed successfully.");
-//         console.log(code)
-//         sendStatusUpdate(true);
-//       }
-//     }
-//   }
+if (cluster.isPrimary) {
+  const startFolder = process.argv[1].split('/').slice(0, -1).join('/');
+  const fileType = process.env.NODE_ENV === 'development' ? 'ts' : 'js';
+  const appFile: string = `${startFolder}/index.${fileType}`;
+  const dbSetupFile: string = `${startFolder}/dbSetup.${fileType}`;
+  const ROLES: {[key: string]: {exec: string, execArgv: string[], restartDelay(code: number): number, onExit(code: number): void}} = {
+    app: {
+      exec: appFile,
+      execArgv: process.execArgv,
+      restartDelay: () => {
+        return 0
+      },
+      onExit: () => {}
+    },
+    dbSetup: {
+      exec: dbSetupFile,
+      execArgv: process.execArgv,
+      restartDelay: (code: number) => {
+        if (code === 0) {
+          return 24 * 60 * 60 * 1000; // paiva
+        } else {
+          return  24 * 60 * 60 * 1000; // paiva
+        }
+      },
+      onExit: (code: number) => {
+        console.log("Database setup completed successfully.");
+        console.log(code)
+        sendStatusUpdate(true);
+      }
+    }
+  }
 
-//   function startByRole(role: string) {
-//     const { exec, execArgv, restartDelay, onExit } = ROLES[role];
-//     cluster.setupPrimary({
-//       exec,
-//       execArgv,
-//     });
-//     const worker = cluster.fork()
-//     WORKERS[worker.id] = { role, worker };
-//     worker.on('exit', (code) => {
-//       console.log(`${role} process exited with code ${code}. Restarting in ${restartDelay(code)}ms...`);
-//       onExit(code);
-//       delete WORKERS[worker.id];
-//       setTimeout(() => {
-//         startByRole(role);
-//       }, restartDelay(code));
-//     });
-//   }
+  function startByRole(role: string) {
+    const { exec, execArgv, restartDelay, onExit } = ROLES[role];
+    cluster.setupPrimary({
+      exec,
+      execArgv,
+    });
+    const worker = cluster.fork()
+    WORKERS[worker.id] = { role, worker };
+    worker.on('exit', (code) => {
+      console.log(`${role} process exited with code ${code}. Restarting in ${restartDelay(code)}ms...`);
+      onExit(code);
+      delete WORKERS[worker.id];
+      setTimeout(() => {
+        startByRole(role);
+      }, restartDelay(code));
+    });
+  }
 
-//   Object.keys(ROLES).forEach(role => {
-//     startByRole(role);
-//   });
+  Object.keys(ROLES).forEach(role => {
+    startByRole(role);
+  });
 
-// }
+}
