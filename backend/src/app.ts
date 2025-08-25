@@ -29,13 +29,7 @@ const databaseStatus = 'ready';
 
 app.use(express.json());
 app.get('/api/check-db-status', (req: express.Request, res: express.Response): void => {
-  if (databaseStatus === 'ready') {
-    res.status(200).json({ status: 'ready' });
-  } else {
-    res.status(503).json({
-      error: 'Service Unavailable: Database is not ready',
-      status: databaseStatus
-    });
+  res.json({status: 'ready 0.1'})
   }
 });
 
