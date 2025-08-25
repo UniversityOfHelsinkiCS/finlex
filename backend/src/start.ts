@@ -38,8 +38,8 @@ export async function sendStatusUpdate(success: boolean) {
 checkEnvVars(REQUIRED_ENV_VARS);
 checkNodeEnv(VALID_NODE_ENVS);
 
-
-if (cluster.isPrimary) {
+function setUpDBWorkers(){
+  
   const startFolder = process.argv[1].split('/').slice(0, -1).join('/');
   const fileType = process.env.NODE_ENV === 'development' ? 'ts' : 'js';
   const appFile: string = `${startFolder}/index.${fileType}`;
@@ -69,7 +69,7 @@ if (cluster.isPrimary) {
         sendStatusUpdate(true);
       }
     }
-  }
+}
 
   function startByRole(role: string) {
     const { exec, execArgv, restartDelay, onExit } = ROLES[role];
