@@ -27,7 +27,7 @@ async function initDatabase() {
   }
 }
 
-export function setUpDBAndSync(){
+export async function setUpDBAndSync(){
   if (process.env.NODE_ENV === 'test') {
     await setupTestDatabase()
   } else {
