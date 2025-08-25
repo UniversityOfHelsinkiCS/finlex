@@ -11,5 +11,5 @@ app.listen(PORT, () => {
 })
 
 if(process.env.IS_DB_SYNCHER){
- await setUpDBAndSync()
+  await setUpDBAndSync()
 }

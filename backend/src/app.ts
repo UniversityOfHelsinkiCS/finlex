@@ -11,26 +11,9 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 
-const databaseStatus = 'ready';
-// process.on('message', (message) => {
-//   if (message === 'db-ready') {
-//     databaseStatus = 'ready';
-//     console.log('Database status is set to ready');
-//   } else if (message === 'db-notready') {
-//     databaseStatus = 'ready';
-//     // databaseStatus = 'notready';
-//     console.log("Database status seems to not be ready but lets ignore that")
-//     // console.log('Database status is set to notready');
-//   } else {
-//     console.error('Unknown message received:', message);
-//   }
-// });
-
-
 app.use(express.json());
 app.get('/api/check-db-status', (req: express.Request, res: express.Response): void => {
-  res.json({status: 'ready 0.1'})
-  }
+  res.status(200).json({ status: 'ready 0.1' });
 });
 
 app.get('/favicon.ico', (request: express.Request, response: express.Response): void => {

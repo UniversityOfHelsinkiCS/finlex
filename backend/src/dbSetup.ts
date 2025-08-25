@@ -28,20 +28,20 @@ async function initDatabase() {
 }
 
 export function setUpDBAndSync(){
-if (process.env.NODE_ENV === 'test') {
-  await setupTestDatabase()
-} else {
-  const shouldExec = process.env.IS_DB_SYNCER;
-  if(shouldExec){
-    await initDatabase();
-    await deleteCollection('statutes', 'fin');
-    await deleteCollection('statutes', 'swe');
-    await deleteCollection('judgments', 'fin');
-    await deleteCollection('judgments', 'swe');
-    await syncStatutes('fin');
-    await syncStatutes('swe');
-    await syncJudgments('fin');
-    await syncJudgments('swe');  }
-}
-console.log('Database setup done.');
+  if (process.env.NODE_ENV === 'test') {
+    await setupTestDatabase()
+  } else {
+    const shouldExec = process.env.IS_DB_SYNCER;
+    if(shouldExec){
+      await initDatabase();
+      await deleteCollection('statutes', 'fin');
+      await deleteCollection('statutes', 'swe');
+      await deleteCollection('judgments', 'fin');
+      await deleteCollection('judgments', 'swe');
+      await syncStatutes('fin');
+      await syncStatutes('swe');
+      await syncJudgments('fin');
+      await syncJudgments('swe');  }
+  }
+  console.log('Database setup done.');
 }
