@@ -21,9 +21,10 @@
   "type": "module",
   "main": "dist/start.js",
   "scripts": {
-    "start": "NODE_ENV=production node dist/start.js",
+    "start": "NODE_ENV=production node dist/index.js",
     "build": "rm -rf dist && tsc && cp -r src/frontend dist/frontend",
-    "dev": "NODE_ENV=development node --import tsx --watch src/start.ts",
+    "dev:setup": "NODE_ENV=development node --import tsx --watch src/dbSetup.ts",
+    "dev": "NODE_ENV=development node --import tsx --watch src/index.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "NODE_ENV=test tsx test/*.test.ts",

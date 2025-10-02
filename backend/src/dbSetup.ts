@@ -27,13 +27,11 @@ async function initDatabase() {
   }
 }
 
-if (process.env.NODE_ENV === 'test') {
-  await setupTestDatabase()
-} else {
-  await initDatabase();
-  const shouldExec = false;
-
-  if(shouldExec){
+export const runSetup = async () => {
+  if (process.env.NODE_ENV === 'test') {
+    await setupTestDatabase()
+  } else {
+    await initDatabase();
     await deleteCollection('statutes', 'fin');
     await deleteCollection('statutes', 'swe');
     await deleteCollection('judgments', 'fin');
@@ -43,6 +41,11 @@ if (process.env.NODE_ENV === 'test') {
     await syncJudgments('fin');
     await syncJudgments('swe');
   }
+  console.log('Database setup done.');
+
+  for (let x = 0; x < 10; x++) {
+    console.log('dbSetup')
+  }
+
+  exit(0)
 }
-console.log('Database setup done.');
-exit(0)

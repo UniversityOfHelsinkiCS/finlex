@@ -5,6 +5,7 @@ import statuteRouter from './controllers/statute.js';
 import judgmentRouter from './controllers/judgment.js';
 import keywordRouter from './controllers/keyword.js';
 import { fileURLToPath } from 'url';
+import { runSetup } from './dbSetup.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -12,20 +13,6 @@ const __dirname = path.dirname(__filename);
 
 
 const databaseStatus = 'ready';
-// process.on('message', (message) => {
-//   if (message === 'db-ready') {
-//     databaseStatus = 'ready';
-//     console.log('Database status is set to ready');
-//   } else if (message === 'db-notready') {
-//     databaseStatus = 'ready';
-//     // databaseStatus = 'notready';
-//     console.log("Database status seems to not be ready but lets ignore that")
-//     // console.log('Database status is set to notready');
-//   } else {
-//     console.error('Unknown message received:', message);
-//   }
-// });
-
 
 app.use(express.json());
 app.get('/api/check-db-status', (req: express.Request, res: express.Response): void => {
@@ -37,6 +24,11 @@ app.get('/api/check-db-status', (req: express.Request, res: express.Response): v
       status: databaseStatus
     });
   }
+});
+
+app.get('/api/setup', (req: express.Request, res: express.Response): void => {
+  runSetup()
+  res.status(200).json({ status: 'started' });
 });
 
 app.get('/favicon.ico', (request: express.Request, response: express.Response): void => {
