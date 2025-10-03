@@ -34,19 +34,20 @@ sequenceDiagram
   dbSetup ->> db: DbReady
   dbSetup ->>+ db: dbIsUpToDate
   Note right of db: for each year
-  activate db
   db ->> db: compareStatuteCount(year)
+    activate db
     db ->> load: listStatutesByYear(year)
     load ->> finlex: HTTP GET
     db ->> statute: getStatuteCountByYear(year)
     statute ->> psql: query DB
-  deactivate db
+    deactivate db
   db ->> db: findMissingStatutes(year)
-  activate db
-  db ->> load : listStatutesByYear(year)
-  db ->> statute: getStatutesByYear(year)
-  statute ->> psql: query
-  load ->> finlex: HTTP GET
+    activate db
+    db ->> load : listStatutesByYear(year)
+    db ->> statute: getStatutesByYear(year)
+    statute ->> psql: query
+    load ->> finlex: HTTP GET
+    deactivate db
   db -->> dbSetup: (updated, statutes, judgements)
   deactivate db
   Note left of db: if not updated
