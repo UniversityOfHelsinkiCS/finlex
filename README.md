@@ -30,35 +30,35 @@ sequenceDiagram
   index ->> dbSetup: runSetup
   activate dbSetup
   dbSetup ->> dbSetup: initDatabase
-  activate dbSetup
-  dbSetup ->> db: DbReady
-  dbSetup ->>+ db: dbIsUpToDate
-  Note right of db: for each year
-  db ->> db: compareStatuteCount(year)
-    activate db
-    db ->> load: listStatutesByYear(year)
-    load ->> finlex: HTTP GET
-    db ->> statute: getStatuteCountByYear(year)
-    statute ->> psql: query DB
-    deactivate db
-  db ->> db: findMissingStatutes(year)
-    activate db
-    db ->> load : listStatutesByYear(year)
-    db ->> statute: getStatutesByYear(year)
-    statute ->> psql: query
-    load ->> finlex: HTTP GET
-    deactivate db
-  db -->> dbSetup: (updated, statutes, judgements)
-  deactivate db
-  Note left of db: if not updated
-  dbSetup ->> db: fillDb
-  activate db
-  Note right of db: for each statute
-  db ->> load: setSingleStatute(statute_url)
-  load ->> load: parseXML
-  load ->> statute: setStatute(parsed_statute)
-  statute ->> psql: update DB
-  deactivate dbSetup
+    activate dbSetup
+    dbSetup ->> db: DbReady
+    dbSetup ->>+ db: dbIsUpToDate
+    Note right of db: for each year
+      activate db
+      db ->> db: compareStatuteCount(year)
+        activate db
+        db ->> load: listStatutesByYear(year)
+        load ->> finlex: HTTP GET
+        db ->> statute: getStatuteCountByYear(year)
+        statute ->> psql: query DB
+        deactivate db
+      db ->> db: findMissingStatutes(year)
+        activate db
+        db ->> load : listStatutesByYear(year)
+        db ->> statute: getStatutesByYear(year)
+        statute ->> psql: query
+        load ->> finlex: HTTP GET
+        deactivate db
+      db -->> dbSetup: (updated, statutes, judgements)
+      deactivate db
+    Note left of db: if not updated
+    dbSetup ->> db: fillDb
+    Note right of db: for each statute
+    db ->> load: setSingleStatute(statute_url)
+    load ->> load: parseXML
+    load ->> statute: setStatute(parsed_statute)
+    statute ->> psql: update DB
+    deactivate dbSetup
   dbSetup ->> search: deleteCollection
   search ->> ts: collection_delete
   dbSetup ->> search: syncStatutes
