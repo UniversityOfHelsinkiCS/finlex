@@ -10,3 +10,55 @@ Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotanto
 - ei linttausvirheitä
 - koodikatselmointi tehty
 - status kirjattu
+
+##
+
+Tietokannan päivitys/synkronointi
+
+```mermaid
+sequenceDiagram
+  participant index
+  participant dbSetup
+  participant db
+  participant statute
+  participant load
+  participant search
+  participant psql
+  participant ts
+  participant finlex
+
+  index ->> dbSetup: runSetup
+  activate dbSetup
+  dbSetup ->> dbSetup: initDatabase
+  activate dbSetup
+  dbSetup ->> db: DbReady
+  dbSetup ->>+ db: dbIsUpToDate
+  Note right of db: for each year
+  activate db
+  db ->> db: compareStatuteCount(year)
+  db ->> load: listStatutesByYear(year)
+  load ->> finlex: HTTP GET
+  db ->> statute: getStatuteCountByYear(year)
+  statute ->> psql: query DB
+  db ->> db: findMissingStatutes(year)
+  db -->> dbSetup: (updated, statutes, judgements)
+  deactivate db
+  Note left of db: if not updated
+  dbSetup ->> db: fillDb
+  activate db
+  Note right of db: for each statute
+  db ->> load: setSingleStatute(statute_url)
+  load ->> load: parseXML
+  load ->> statute: setStatute(parsed_statute)
+  statute ->> psql: update DB
+  deactivate dbSetup
+  dbSetup ->> search: deleteCollection
+  search ->> ts: collection_delete
+  dbSetup ->> search: syncStatutes
+  search ->> ts: collection_create
+  Note right of db: for each year
+  search ->> psql: query DB (statutes of year)
+  search ->> search: upsertWithRetry
+  search ->> ts: entries_create
+  deactivate dbSetup
+```
