@@ -41,8 +41,8 @@ sequenceDiagram
   db ->> statute: getStatuteCountByYear(year)
   statute ->> psql: query DB
   db ->> db: findMissingStatutes(year)
-  db ->> load : listStatutesByYear
-  db ->> statute: 
+  db ->> load : listStatutesByYear(year)
+  db ->> statute: getStatutesByYear(year)
   statute ->> psql: query
   load ->> finlex: HTTP GET
   db -->> dbSetup: (updated, statutes, judgements)
