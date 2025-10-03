@@ -59,7 +59,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
     setHasStartedUpdate(true)
 
     try {
-      const response = await axios.get('/api/setup')
+      const response = await axios.post('/api/setup')
       setMessage(language === 'fin'
         ? 'Päivitys aloitettu!'
         : 'Uppdatering startad!'

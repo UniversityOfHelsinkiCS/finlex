@@ -17,11 +17,13 @@ async function setPool(uri: string) {
 }
 
 async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise<void> {
+  console.log('FILLING DB')
   try {
-
     let i = 0;
     for (const key of statutes) {
       ++i;
+      const url = buildFinlexUrl(key)
+      console.log('URL', url)
       await setSingleStatute(buildFinlexUrl(key));
       if (i % 100 === 0) {
         console.log(`Inserted ${i} statutes (${statutes.length})`);
@@ -97,6 +99,7 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     if (expectedCount === 0) {
       return true;
     }
+
     const existingCount = await getStatuteCountByYear(year);
     if (existingCount > expectedCount) {
       console.warn(`Found too many statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
@@ -105,6 +108,7 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     } else {
       console.debug(`Correct number of statutes for year ${year}: ${existingCount}`);
     }
+
     return existingCount === expectedCount;
   }
 
@@ -132,10 +136,12 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     const expectedFin = await listStatutesByYear(year, 'fin');
     const expectedSwe = await listStatutesByYear(year, 'swe');
     const expectedStatutes = []
+
     for (const statuteUrl of [...expectedFin, ...expectedSwe]) {
       const statute = parseFinlexUrl(statuteUrl);
       expectedStatutes.push({ number: statute.docNumber, year: statute.docYear, language: statute.docLanguage, version: statute.docVersion });
     }
+
     const existingStatutesFin = await getStatutesByYear(year, 'fin');
     const existingStatutesSwe = await getStatutesByYear(year, 'swe');
     const existingStatutes: StatuteKey[] = [];
@@ -143,6 +149,7 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     for (const statute of existingStatutesFin) {
       existingStatutes.push({ number: statute.docNumber, year: statute.docYear, language: 'fin', version: statute.docVersion });
     }
+
     for (const statute of existingStatutesSwe) {
       existingStatutes.push({ number: statute.docNumber, year: statute.docYear, language: 'swe', version: statute.docVersion });
     }
@@ -158,6 +165,13 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
         missingStatutes.push(statute);
       }
     }
+
+    if (missingStatutes.length > 0) {
+      //console.log(existingStatutesFin)
+      console.log('missingStatutes', missingStatutes, missingStatutes.length)
+    }
+
+
     return missingStatutes;
   }
 
@@ -195,6 +209,11 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
         missingJudgments.push(judgment);
       }
     }
+
+    if (missingJudgments.length > 0) {
+      console.log('missingJudgments', missingJudgments, missingJudgments.length)
+    }
+
     return missingJudgments;
   }
 

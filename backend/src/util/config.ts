@@ -9,5 +9,8 @@ export const yearFrom = () => {
 }
 
 export const yearTo = () => {
+  if (process.env.END_YEAR){
+    return parseInt(process.env.END_YEAR, 10)
+  }
   return new Date().getFullYear()
 }

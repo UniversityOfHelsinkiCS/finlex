@@ -4,12 +4,21 @@ import { JudgmentKeyWord } from '../../types/judgment.js';
 
 export async function setStatuteKeyword(key: StatuteKeyWord) {
   const sql = 'INSERT INTO keywords_statute (id, keyword, statute_uuid, language) VALUES ($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT unique_keyword_statute DO NOTHING';
-  await query(sql, [key.id, key.keyword, key.statute_uuid, key.language]);
+  try {
+    await query(sql, [key.id, key.keyword, key.statute_uuid, key.language]);
+  } catch {
+    console.log('FAILED INSERT INTO keywords_statute ', key)
+  }
 }
 
 export async function setJudgmentKeyword(key: JudgmentKeyWord) {
   const sql = 'INSERT INTO keywords_judgment (id, keyword, judgment_uuid, language) VALUES ($1, $2, $3, $4) ON CONFLICT ON CONSTRAINT unique_keyword_judgment DO NOTHING';
   await query(sql, [key.id, key.keyword, key.judgment_uuid, key.language]);
+  try {
+    await query(sql, [key.id, key.keyword, key.judgment_uuid, key.language]);
+  } catch {
+    console.log('FAILED INSERT INTO keywords_judgment ', key)
+  }
 }
 
 export async function getStatuteKeywords(language: string) {

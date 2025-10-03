@@ -169,7 +169,7 @@ export async function syncStatutes(lang: string) {
 
   for (let year = yearFrom(); year <= yearTo(); year++) {
 
-    await addStatusRow({ message: 'syncStatutes ' + lang, year}, true)
+    await addStatusRow({ message: 'syncStatutes ' + lang, year }, true)
 
     const { rows } = await query(
       `
@@ -189,28 +189,42 @@ export async function syncStatutes(lang: string) {
     )
     if (rows.length === 0) continue
 
+    await addStatusRow({ message: `syncStatutes ${year}, total rows ` + rows.length }, true)
+
     while (rows.length > 0) {
       const row = rows.pop()
-      const parsed_xml = await parseStringPromise(row.content, { explicitArray: false })
-      const headingTree: Heading[] = parseXmlHeadings(parsed_xml) ?? [];
-      const headings = flattenHeadings(headingTree);
-      const paragraphs = extractParagraphs(row.content);
-      const commonNames = await getCommonNamesByStatuteUuid(row.id);
-      const keywords = await getStatuteKeywordsByStatuteUuid(row.id);
 
-      await upsertWithRetry(collectionName, {
-        id: row.id,
-        title: row.title,
-        year: String(row.year),
-        year_num: parseInt(row.year, 10),
-        number: row.number,
-        has_content: row.is_empty ? 0 : 1,
-        common_names: commonNames,
-        keywords: keywords,
-        version: row.version ?? '',
-        headings: normalizeText(headings, lang),
-        paragraphs: normalizeText(paragraphs, lang),
-      });
+      try {
+        const parsed_xml = await parseStringPromise(row.content, { explicitArray: false })
+        const headingTree: Heading[] = parseXmlHeadings(parsed_xml) ?? [];
+        const headings = flattenHeadings(headingTree);
+        const paragraphs = extractParagraphs(row.content);
+        const commonNames = await getCommonNamesByStatuteUuid(row.id);
+        const keywords = await getStatuteKeywordsByStatuteUuid(row.id);
+
+        if (rows.length % 100 === 0) {
+          await addStatusRow({ message: `syncStatutes ${year}, rows left ` + rows.length }, true)
+        }
+
+        await upsertWithRetry(collectionName, {
+          id: row.id,
+          title: row.title,
+          year: String(row.year),
+          year_num: parseInt(row.year, 10),
+          number: row.number,
+          has_content: row.is_empty ? 0 : 1,
+          common_names: commonNames,
+          keywords: keywords,
+          version: row.version ?? '',
+          headings: normalizeText(headings, lang),
+          paragraphs: normalizeText(paragraphs, lang),
+        });
+      } catch (error){
+        console.log('--- errored -->',row.id)
+        console.log(row)
+        console.log(error)
+      }
+
     }
   }
 }
@@ -272,12 +286,19 @@ export async function syncJudgments(lang: string) {
     )
     if (rows.length === 0) continue
 
+    await addStatusRow({ message: `syncJudgements ${year} total rows ` + rows.length }, true)
+
     while (rows.length > 0) {
       const row = rows.pop()
       const headingTree: Heading[] = parseHtmlHeadings(row.content) ?? [];
       const headings = flattenHeadings(headingTree);
       const paragraphs = extractParagraphsHtml(row.content);
       const keywords = await getJudgmentKeywordsByJudgmentUuid(row.id);
+
+
+      if (rows.length % 100 === 0) {
+        await addStatusRow({ message:  `syncJudgements ${year}, rows left` + rows.length }, true)
+      }
 
       await upsertWithRetry(collectionName, {
         id: row.id,

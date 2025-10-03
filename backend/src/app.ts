@@ -30,7 +30,7 @@ app.get('/api/ping', (req, res) => {
   res.send({ data: 'pong' })
 })
 
-app.get('/api/setup', async (req: express.Request, res: express.Response): Promise<void> => {
+app.post('/api/setup', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     res.status(200).json({ status: 'started', message: 'Database update started in background' });
 
