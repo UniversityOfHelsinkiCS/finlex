@@ -36,8 +36,10 @@ sequenceDiagram
   Note right of db: for each year
   activate db
   db ->> db: compareStatuteCount(year)
+  activate db
   db ->> load: listStatutesByYear(year)
   load ->> finlex: HTTP GET
+  deactivate db
   db ->> statute: getStatuteCountByYear(year)
   statute ->> psql: query DB
   db ->> db: findMissingStatutes(year)
