@@ -6,7 +6,7 @@ import { getJudgmentCountByYear, getJudgmentsByYear } from './models/judgment.js
 import { StatuteKey } from '../types/statute.js';
 import { JudgmentKey } from '../types/judgment.js';
 import { syncJudgments, syncStatutes } from '../search.js';
-import { START_YEAR } from '../util/config.js';
+import { yearFrom, yearTo } from '../util/config.js';
 
 let pool: Pool;
 
@@ -24,19 +24,24 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
       ++i;
       await setSingleStatute(buildFinlexUrl(key));
       if (i % 100 === 0) {
-        console.log(`Inserted ${i} statutes`);
+        console.log(`Inserted ${i} statutes (${statutes.length})`);
+        await addStatusRow({message: `Inserted ${i} statutes (${statutes.length})`}, true)
       }
     }
     console.log(`Finshed inserting ${i} statutes`);
+    await addStatusRow({message: `Finshed inserting ${i} statutes`}, true)
+
     i = 0;
     for (const key of judgments) {
       ++i;
       await setSingleJudgment(buildJudgmentUrl(key));
       if (i % 100 === 0) {
-        console.log(`Inserted ${i} judgments`);
+        console.log(`Inserted ${i} judgments (${judgments.length})`);
+        await addStatusRow({message: `Inserted ${i} judgments (${judgments.length})`}, true)
       }
     }
     console.log(`Finshed inserting ${i} judgments`);
+    await addStatusRow({message: `Finshed inserting ${i} judgments`}, true)
 
     console.log("Database is filled")
   } catch (error) {
@@ -46,7 +51,6 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 }
 
 async function dbIsReady(): Promise<boolean> {
-  return true
   try {
     const client = await pool.connect();
     let result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'images');")
@@ -70,8 +74,11 @@ async function dbIsReady(): Promise<boolean> {
     result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'map_image_statute');")
     const mapImageStatuteExists = result.rows[0].exists;
 
+    result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'status');")
+    const statusExists = result.rows[0].exists;
+
     client.release();
-    return imagesExists && statutesExists && judgmentsExists && commonNamesExists && keywordsStatuteExists && keywordsJudgmentExists && mapImageStatuteExists;
+    return imagesExists && statutesExists && judgmentsExists && commonNamesExists && keywordsStatuteExists && keywordsJudgmentExists && mapImageStatuteExists && statusExists;
 
 
   } catch (error) {
@@ -154,7 +161,6 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     return missingStatutes;
   }
 
-
   async function findMissingJudgments(year: number): Promise<JudgmentKey[]> {
     const expectedFinKKO = await listJudgmentsByYear(year, 'fin', 'kko');
     const expectedSweKKO = await listJudgmentsByYear(year, 'swe', 'kko');
@@ -192,14 +198,14 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     return missingJudgments;
   }
 
-
-
   try {
     const statutes: StatuteKey[] = [];
     const judgments: JudgmentKey[] = [];
     let upToDate = true;
-    const currentYear = new Date().getFullYear();
-    for (let year = START_YEAR; year <= currentYear + 1; year++) {
+    const currentYear = yearTo()
+    for (let year = yearFrom(); year <= currentYear + 1; year++) {
+      await addStatusRow({ year, status: 'updating' }, true);
+
       if (!await compareStatuteCount(year)) {
         console.log(`Statutes for year ${year} are not up to date`);
         statutes.push(...await findMissingStatutes(year));
@@ -212,6 +218,8 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
         upToDate = false;
       }
     }
+
+    await addStatusRow({ statutes: statutes.length,judgments: judgments.length }, true);
     return { upToDate, statutes, judgments };
 
   } catch (error) {
@@ -283,6 +291,14 @@ async function createTables(): Promise<void> {
       )
     `);
     await client.query(`
+      CREATE TABLE IF NOT EXISTS status (
+        id SERIAL PRIMARY KEY,
+        date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        data JSONB NOT NULL,
+        updating BOOLEAN DEFAULT FALSE
+      )
+    `);
+    await client.query(`
       CREATE TABLE IF NOT EXISTS map_image_statute (
         statute_uuid UUID references statutes(uuid) ON DELETE CASCADE,
         image_uuid UUID references images(uuid) ON DELETE RESTRICT,
@@ -325,6 +341,32 @@ async function query(text: string, params?: unknown[]): Promise<QueryResult> {
   }
 }
 
+async function addStatusRow(data: object, updating: boolean = false): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query(
+      'INSERT INTO status (data, updating) VALUES ($1, $2)',
+      [JSON.stringify(data), updating]
+    );
+    client.release();
+  } catch (error) {
+    console.error('Error adding status row:', error);
+    throw error;
+  }
+}
+
+
+async function clearStatusRows(): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query('DELETE FROM status');
+    client.release();
+  } catch (error) {
+    console.error('Error clearing status rows:', error);
+    throw error;
+  }
+}
+
 async function closePool() {
   try {
     await pool.end();
@@ -358,4 +400,4 @@ async function setupTestDatabase(): Promise<void> {
 }
 
 
-export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase };
+export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows };

@@ -66,7 +66,7 @@ statuteRouter.get('/search', async (request: express.Request, response: express.
     let results
     try {
       results = await getStatuteByNumberYear(docNumber, parseInt(docYear), language)
-    }catch {response.status(500).json({ error: 'Internal server error' }); return; }
+    } catch {response.status(500).json({ error: 'Internal server error' }); return; }
 
     if (results) {
       response.json({type: 'redirect', content: {

@@ -1,7 +1,8 @@
-import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase } from "./db/db.js";
+import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows } from "./db/db.js";
 import './util/config.js';
 import { exit } from 'process';
 import { syncStatutes, deleteCollection, syncJudgments } from "./search.js";
+import { yearFrom, yearTo } from "./util/config.js";
 
 setPool(process.env.PG_URI ?? '');
 
@@ -11,6 +12,10 @@ async function initDatabase() {
       console.log('Database is not ready, creating tables...')
       await createTables()
     }
+
+    await clearStatusRows()
+    await addStatusRow({ message: 'updating', from: yearFrom(), to: yearTo() }, true)
+
     console.log('Database is ready.')
     const { upToDate, statutes, judgments } = await dbIsUpToDate()
     if (!upToDate) {
@@ -40,12 +45,8 @@ export const runSetup = async () => {
     await syncStatutes('swe');
     await syncJudgments('fin');
     await syncJudgments('swe');
+
+    await addStatusRow({ message: 'updated', from: yearFrom(), to: yearTo() }, false)
   }
   console.log('Database setup done.');
-
-  for (let x = 0; x < 10; x++) {
-    console.log('dbSetup')
-  }
-
-  exit(0)
 }

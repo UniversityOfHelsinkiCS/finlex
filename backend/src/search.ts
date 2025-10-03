@@ -8,10 +8,10 @@ import { SearchParams } from "typesense/lib/Typesense/Documents.js";
 import { parseStringPromise } from "xml2js";
 import xmldom from '@xmldom/xmldom';
 import { parseXmlHeadings, parseHtmlHeadings } from './util/parse.js';
-import { query } from "./db/db.js"
+import { addStatusRow, query } from "./db/db.js"
 import { dropWords, dropwords_set_fin, dropwords_set_swe } from "./util/dropwords.js";
 import { JSDOM } from "jsdom";
-import { START_YEAR } from  './util/config.js';
+import { yearFrom, yearTo } from './util/config.js';
 import { getCommonNamesByStatuteUuid } from "./db/models/commonName.js";
 import { getJudgmentKeywordsByJudgmentUuid, getStatuteKeywordsByStatuteUuid } from "./db/models/keyword.js";
 
@@ -127,6 +127,7 @@ async function upsertWithRetry(collectionName: string, document: Record<string, 
   }
 }
 
+
 export async function syncStatutes(lang: string) {
   let lang_short
   if (lang === "fin") {
@@ -166,7 +167,10 @@ export async function syncStatutes(lang: string) {
     console.log(`Collection ${collectionName} already exists`);
   }
 
-  for (let year = START_YEAR; year <= new Date().getFullYear(); year++) {
+  for (let year = yearFrom(); year <= yearTo(); year++) {
+
+    await addStatusRow({ message: 'syncStatutes ' + lang, year}, true)
+
     const { rows } = await query(
       `
       SELECT
@@ -223,6 +227,8 @@ export async function syncJudgments(lang: string) {
   const collectionName = `judgments_${lang}`;
   console.log(`\n=== Indexing: ${lang} -> ${collectionName}`);
 
+  await addStatusRow({ message: 'syncJudgments ' + lang}, true)
+
   const schema: CollectionCreateSchema = {
     name: collectionName,
     fields: [
@@ -248,7 +254,7 @@ export async function syncJudgments(lang: string) {
     console.log(`Collection ${collectionName} already exists`);
   }
 
-  for (let year = START_YEAR; year <= new Date().getFullYear(); year++) {
+  for (let year = yearFrom(); year <= yearTo(); year++) {
     const { rows } = await query(
       `
       SELECT

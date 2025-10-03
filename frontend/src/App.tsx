@@ -6,7 +6,8 @@ import ListDocumentPage from './components/ListDocumentPage'
 import DocumentPage from './components/DocumentPage'
 import KeywordPage from './components/KeywordPage'
 import KeywordLawPage from './components/KeywordLawPage'
-import { useState } from 'react'
+import AdminPage from './components/AdminPage'
+import { useState, useEffect, useCallback } from 'react'
 import { Helmet } from "react-helmet"
 import { ThreeDot } from 'react-loading-indicators'
 import axios from 'axios'
@@ -55,8 +56,16 @@ const App = () => {
     width: '300px',
   }
 
-  const checkDbStatus = async () => {
-
+  // Always allow access to admin page, regardless of database status
+  const isAdminRoute = window.location.pathname === "/admin"
+  
+  const checkDbStatus = useCallback(async () => {
+    // Don't continuously check database status if on admin page
+    if (isAdminRoute) {
+      setAppReady(true)
+      return
+    }
+    
     try {
       const response = await axios.get(`/api/check-db-status`)
       if (response.status === 200) {
@@ -64,15 +73,18 @@ const App = () => {
       }
 
     } catch (error) { // eslint-disable-line
-
       setAppReady(false)
       setTimeout(() => {
         checkDbStatus()
       }, 1000)
     }
-  }
-  checkDbStatus()
-  if (appReady) {
+  }, [isAdminRoute])
+  
+  useEffect(() => {
+    checkDbStatus()
+  }, [checkDbStatus])
+  
+  if (appReady || isAdminRoute) {
     return (
       <Router>
         <div>
@@ -107,6 +119,7 @@ const App = () => {
               element={<DocumentPage language={language} apipath="judgment" />
               }
             />
+            <Route key="admin" path="/admin" element={<AdminPage language={language} />} />
           </Routes>
         </div>
       </Router>
