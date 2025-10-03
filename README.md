@@ -56,7 +56,7 @@ sequenceDiagram
   search ->> ts: collection_delete
   dbSetup ->> search: syncStatutes
   search ->> ts: collection_create
-  Note right of db: for each year
+  Note right of search: for each year
   search ->> psql: query DB (statutes of year)
   search ->> search: upsertWithRetry
   search ->> ts: entries_create
