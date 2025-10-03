@@ -45,7 +45,6 @@ sequenceDiagram
   db ->> statute: 
   statute ->> psql: query
   load ->> finlex: HTTP GET
-  db ->> :
   db -->> dbSetup: (updated, statutes, judgements)
   deactivate db
   Note left of db: if not updated
