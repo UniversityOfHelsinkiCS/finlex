@@ -3,17 +3,15 @@
 Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotantoprojekti/SEB-yhteensopiva_finlex-lukija/wiki)
 
 
-## Definition of Done
-- ominaisuus on suunniteltu
-- ominaisuus on toimiva
-- yksikkötestit menee läpi
-- ei linttausvirheitä
-- koodikatselmointi tehty
-- status kirjattu
+## Local dev
 
-##
+```
+docker compose up
+npm --prefix ./backend run dev
+npm --prefix ./front run dev
+```
 
-Tietokannan päivitys/synkronointi
+## Tietokannan päivitys/synkronointi
 
 ```mermaid
 sequenceDiagram

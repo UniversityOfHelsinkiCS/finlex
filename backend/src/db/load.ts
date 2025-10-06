@@ -470,7 +470,7 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
   const latestVersions = getLatestStatuteVersions(uris)
     .filter(uri => uri.includes(`/${language}@`));
 
-  console.log(`Filtered to ${latestVersions.length} latest versions in ${language}`);
+  console.log(`listStatutesByYear: ${year} filtered to ${latestVersions.length} latest versions in ${language}`);
 
   return latestVersions;
 

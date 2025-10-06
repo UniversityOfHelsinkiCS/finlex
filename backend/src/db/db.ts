@@ -98,11 +98,11 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
 
     const existingCount = await getStatuteCountByYear(year);
     if (existingCount > expectedCount) {
-      console.warn(`Found too many statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
+      console.warn(`In DB too many statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
     } else if (existingCount < expectedCount) {
-      console.log(`Found too few statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
+      console.log(`In DB too few statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
     } else {
-      console.debug(`Correct number of statutes for year ${year}: ${existingCount}`);
+      console.debug(`In DB correct number of statutes for year ${year}: ${existingCount}`);
     }
 
     return existingCount === expectedCount;
@@ -119,11 +119,11 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     }
     const existingCount = await getJudgmentCountByYear(year);
     if (existingCount > expectedCount) {
-      console.warn(`Found too many judgments for year ${year}: ${existingCount}, expected ${expectedCount}.`);
+      console.warn(`In DB too many judgments for year ${year}: ${existingCount}, expected ${expectedCount}.`);
     } else if (existingCount < expectedCount) {
-      console.log(`Found too few judgments for year ${year}: ${existingCount}, expected ${expectedCount}.`);
+      console.log(`In DB too few judgments for year ${year}: ${existingCount}, expected ${expectedCount}.`);
     } else {
-      console.debug(`Correct number of judgments for year ${year}: ${existingCount}`);
+      console.debug(`In DB correct number of judgments for year ${year}: ${existingCount}`);
     }
     return existingCount === expectedCount;
   }

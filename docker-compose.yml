@@ -1,0 +1,20 @@
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile.postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    ports:
+      - "5432:5432"
+  typesense:
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile.typesense
+    environment:
+      TYPESENSE_API_KEY: 'xyz'
+      TYPESENSE_DATA_DIR: /tmp
+    ports:
+      - "8108:8108"
