@@ -8,7 +8,7 @@ import { SearchParams } from "typesense/lib/Typesense/Documents.js";
 import { parseStringPromise } from "xml2js";
 import xmldom from '@xmldom/xmldom';
 import { parseXmlHeadings, parseHtmlHeadings } from './util/parse.js';
-import { addStatusRow, query } from "./db/db.js"
+import { query } from "./db/db.js"
 import { dropWords, dropwords_set_fin, dropwords_set_swe } from "./util/dropwords.js";
 import { JSDOM } from "jsdom";
 import { yearFrom, yearTo } from './util/config.js';
@@ -168,8 +168,7 @@ export async function syncStatutes(lang: string) {
   }
 
   for (let year = yearFrom(); year <= yearTo(); year++) {
-
-    await addStatusRow({ message: 'syncStatutes ' + lang, year }, true)
+    console.log('syncStatutes ' + lang + ' ' + year)
 
     const { rows } = await query(
       `
@@ -189,7 +188,7 @@ export async function syncStatutes(lang: string) {
     )
     if (rows.length === 0) continue
 
-    await addStatusRow({ message: `syncStatutes ${year}, total rows ` + rows.length }, true)
+    console.log(`syncStatutes ${year}, total rows ${rows.length}`)
 
     while (rows.length > 0) {
       const row = rows.pop()
@@ -203,7 +202,7 @@ export async function syncStatutes(lang: string) {
         const keywords = await getStatuteKeywordsByStatuteUuid(row.id);
 
         if (rows.length % 100 === 0) {
-          await addStatusRow({ message: `syncStatutes ${year}, rows left ` + rows.length }, true)
+          console.log(`syncStatutes ${year}, rows left ` + rows.length)
         }
 
         await upsertWithRetry(collectionName, {
@@ -240,8 +239,6 @@ export async function syncJudgments(lang: string) {
   }
   const collectionName = `judgments_${lang}`;
   console.log(`\n=== Indexing: ${lang} -> ${collectionName}`);
-
-  await addStatusRow({ message: 'syncJudgments ' + lang}, true)
 
   const schema: CollectionCreateSchema = {
     name: collectionName,
@@ -286,7 +283,7 @@ export async function syncJudgments(lang: string) {
     )
     if (rows.length === 0) continue
 
-    await addStatusRow({ message: `syncJudgements ${year} total rows ` + rows.length }, true)
+    console.log(`syncJudgements ${year}, total rows ${rows.length}`)
 
     while (rows.length > 0) {
       const row = rows.pop()
@@ -297,7 +294,7 @@ export async function syncJudgments(lang: string) {
 
 
       if (rows.length % 100 === 0) {
-        await addStatusRow({ message:  `syncJudgements ${year}, rows left` + rows.length }, true)
+        console.log(`syncJudgements ${year}, rows left ` + rows.length)
       }
 
       await upsertWithRetry(collectionName, {

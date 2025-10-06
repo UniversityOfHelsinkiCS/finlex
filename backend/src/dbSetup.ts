@@ -19,8 +19,7 @@ async function initDatabase() {
     console.log('Database is ready.')
     const { upToDate, statutes, judgments } = await dbIsUpToDate()
 
-    console.log('XXXXXXXXX')
-    console.log(upToDate, statutes.length, judgments.length)
+    console.log(upToDate, 'statutes', statutes.length, 'judgements',judgments.length)
 
     if (!upToDate) {
       console.log('Database is not up to date, filling database...')

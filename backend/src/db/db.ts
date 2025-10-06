@@ -26,12 +26,10 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
       console.log('URL', url)
       await setSingleStatute(buildFinlexUrl(key));
       if (i % 100 === 0) {
-        console.log(`Inserted ${i} statutes (${statutes.length})`);
-        await addStatusRow({message: `Inserted ${i} statutes (${statutes.length})`}, true)
+        console.log(`Inserted ${i} statutes (${statutes.length})`)
       }
     }
     console.log(`Finshed inserting ${i} statutes`);
-    await addStatusRow({message: `Finshed inserting ${i} statutes`}, true)
 
     i = 0;
     for (const key of judgments) {
@@ -39,11 +37,9 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
       await setSingleJudgment(buildJudgmentUrl(key));
       if (i % 100 === 0) {
         console.log(`Inserted ${i} judgments (${judgments.length})`);
-        await addStatusRow({message: `Inserted ${i} judgments (${judgments.length})`}, true)
       }
     }
     console.log(`Finshed inserting ${i} judgments`);
-    await addStatusRow({message: `Finshed inserting ${i} judgments`}, true)
 
     console.log("Database is filled")
   } catch (error) {
@@ -223,7 +219,6 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     let upToDate = true;
     const currentYear = yearTo()
     for (let year = yearFrom(); year <= currentYear + 1; year++) {
-      await addStatusRow({ year, status: 'updating' }, true);
 
       if (!await compareStatuteCount(year)) {
         console.log(`Statutes for year ${year} are not up to date`);
@@ -238,7 +233,6 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
       }
     }
 
-    await addStatusRow({ statutes: statutes.length,judgments: judgments.length }, true);
     return { upToDate, statutes, judgments };
 
   } catch (error) {
@@ -360,21 +354,6 @@ async function query(text: string, params?: unknown[]): Promise<QueryResult> {
   }
 }
 
-async function addStatusRow(data: object, updating: boolean = false): Promise<void> {
-  try {
-    const client = await pool.connect();
-    await client.query(
-      'INSERT INTO status (data, updating) VALUES ($1, $2)',
-      [JSON.stringify(data), updating]
-    );
-    client.release();
-  } catch (error) {
-    console.error('Error adding status row:', error);
-    throw error;
-  }
-}
-
-
 async function clearStatusRows(): Promise<void> {
   try {
     const client = await pool.connect();
@@ -418,5 +397,18 @@ async function setupTestDatabase(): Promise<void> {
   console.log('Test database setup complete');
 }
 
+async function addStatusRow(data: object, updating: boolean = false): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query(
+      'INSERT INTO status (data, updating) VALUES ($1, $2)',
+      [JSON.stringify(data), updating]
+    );
+    client.release();
+  } catch (error) {
+    console.error('Error adding status row:', error);
+    throw error;
+  }
+}
 
-export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows };
+export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow };
