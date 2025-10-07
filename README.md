@@ -46,7 +46,6 @@ sequenceDiagram
         load ->> finlex: HTTP GET
         db ->> statute: getStatutesByYear(year)
         statute ->> psql: query
-        load ->> finlex: HTTP GET
         deactivate db
       db -->> dbSetup: (updated, statutes, judgements)
       deactivate db

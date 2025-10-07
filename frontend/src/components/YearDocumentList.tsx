@@ -26,12 +26,18 @@ const YearDocumentList = () => {
     return
   }
 
+  // not used currently
   const onEmpty = async number => {
     console.log('refresh', number)
     const response = await axios.post(`/api/statute/id/${year}/${number}/${lang}`)
 
     console.log(response.data)
   }
+
+  const getApiUrl = (number, v) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${v ? v : ''}`
+
+  const getFlexUrl = (number, v) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
+
 
   return (
     <div>
@@ -61,7 +67,17 @@ const YearDocumentList = () => {
                 <td><a href={`/lainsaadanto/${doc.docYear}/${doc.docNumber}`}>{doc.docTitle}</a></td>
                 <td>{doc.docYear}</td>
                 <td>{doc.docVersion || 'N/A'}</td>
-                <td>{doc.isEmpty && <button onClick={() => onEmpty(doc.docNumber)}>empty</button>}</td>
+                <td>{doc.isEmpty &&
+                  <>
+                    <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
+                      API
+                    </a>
+                    <a href={getFlexUrl(doc.docNumber, doc.docVersion)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
+                      finlex
+                    </a>
+                  </>
+                }
+                </td>
               </tr>
             ))}
         </tbody>
