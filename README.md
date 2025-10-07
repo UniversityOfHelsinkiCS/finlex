@@ -43,6 +43,7 @@ sequenceDiagram
       db ->> db: findMissingStatutes(year)
         activate db
         db ->> load : listStatutesByYear(year)
+        load ->> finlex: HTTP GET
         db ->> statute: getStatutesByYear(year)
         statute ->> psql: query
         load ->> finlex: HTTP GET

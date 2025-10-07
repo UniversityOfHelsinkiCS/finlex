@@ -6,11 +6,12 @@ const YearDocumentList = () => {
   const { year } = useParams<{ year: string }>()
 
   const [documents, setDocuments] = useState([])
+  const lang = 'fin'
 
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const response = await axios.get(`/api/statute/${year}`)
+        const response = await axios.get(`/api/statute/${year}/${lang}`)
 
         setDocuments(response.data)
       } catch (error) {
@@ -23,6 +24,13 @@ const YearDocumentList = () => {
 
   if (documents.length === 0) {
     return
+  }
+
+  const onEmpty = async number => {
+    console.log('refresh', number)
+    const response = await axios.post(`/api/statute/id/${year}/${number}/${lang}`)
+
+    console.log(response.data)
   }
 
   return (
@@ -45,15 +53,17 @@ const YearDocumentList = () => {
           </tr>
         </thead>
         <tbody>
-          {documents.map((doc: any, index: number) => (
-            <tr key={index}>
-              <td>{doc.docNumber}</td>
-              <td><a href={`/lainsaadanto/${doc.docYear}/${doc.docNumber}`}>{doc.docTitle}</a></td>
-              <td>{doc.docYear}</td>
-              <td>{doc.docVersion || 'N/A'}</td>
-              <td>{doc.isEmpty ? 'Empty' : ''}</td>
-            </tr>
-          ))}
+          {documents
+            .sort((a: any, b: any) => (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0))
+            .map((doc: any, index: number) => (
+              <tr key={index}>
+                <td>{doc.docNumber}</td>
+                <td><a href={`/lainsaadanto/${doc.docYear}/${doc.docNumber}`}>{doc.docTitle}</a></td>
+                <td>{doc.docYear}</td>
+                <td>{doc.docVersion || 'N/A'}</td>
+                <td>{doc.isEmpty && <button onClick={() => onEmpty(doc.docNumber)}>empty</button>}</td>
+              </tr>
+            ))}
         </tbody>
       </table>
     </div>

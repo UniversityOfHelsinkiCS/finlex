@@ -47,10 +47,20 @@ statuteRouter.get('/id/:year/:number/:language', async (request: express.Request
   response.send(content)
 })
 
-statuteRouter.get('/:year', async (request: express.Request, response: express.Response): Promise<void> => {
+statuteRouter.post('/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
+  const year = parseInt(request.params.year)
+  const language = request.params.language
+  const number = request.params.number
+  const content = await getStatuteByNumberYear(number, year, language)
+
+  response.setHeader('Content-Type', 'application/xml')
+  response.send(content)
+})
+
+statuteRouter.get('/:year/:lang', async (request: express.Request, response: express.Response): Promise<void> => {
   const year = parseInt(request.params.year)
 
-  const statutes = await getStatutesByYear(year, 'fin')
+  const statutes = await getStatutesByYear(year, request.params.lang)
   response.send(statutes)
 })
 
