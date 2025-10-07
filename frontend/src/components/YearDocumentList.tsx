@@ -26,18 +26,8 @@ const YearDocumentList = () => {
     return
   }
 
-  // not used currently
-  const onEmpty = async number => {
-    console.log('refresh', number)
-    const response = await axios.post(`/api/statute/id/${year}/${number}/${lang}`)
-
-    console.log(response.data)
-  }
-
   const getApiUrl = (number: any, v: any) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${v ? v : ''}`
-
   const getFlexUrl = (number: any) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
-
 
   return (
     <div>
@@ -72,7 +62,7 @@ const YearDocumentList = () => {
                     <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
                       API
                     </a>
-                    <a href={getFlexUrl(doc.docNumber, doc.docVersion)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
+                    <a href={getFlexUrl(doc.docNumber)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
                       finlex
                     </a>
                   </>
