@@ -34,9 +34,9 @@ const YearDocumentList = () => {
     console.log(response.data)
   }
 
-  const getApiUrl = (number, v) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${v ? v : ''}`
+  const getApiUrl = (number: any, v: any) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${v ? v : ''}`
 
-  const getFlexUrl = (number, v) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
+  const getFlexUrl = (number: any) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
 
 
   return (
