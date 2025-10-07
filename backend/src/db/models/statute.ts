@@ -42,9 +42,7 @@ export async function searchStatutesByKeywordAndLanguage(keyword: string, langua
 }
 
 export async function getStatuteByNumberYear(number: string, year: number, language: string): Promise<string | null> {
-  console.log(number, year, language)
   const sql = 'SELECT content FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
   const result = await query(sql, [number, year, language]);
-  console.log(result)
   return result.rows[0]?.content || null;
 }

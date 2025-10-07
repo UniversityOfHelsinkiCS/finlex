@@ -47,6 +47,13 @@ statuteRouter.get('/id/:year/:number/:language', async (request: express.Request
   response.send(content)
 })
 
+statuteRouter.get('/:year', async (request: express.Request, response: express.Response): Promise<void> => {
+  const year = parseInt(request.params.year)
+
+  const statutes = await getStatutesByYear(year, 'fin')
+  response.send(statutes)
+})
+
 statuteRouter.get('/search', async (request: express.Request, response: express.Response): Promise<void> => {
   const query = request.query.q as string
   const language = request.query.language as string

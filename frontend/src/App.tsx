@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Helmet } from "react-helmet"
 import { ThreeDot } from 'react-loading-indicators'
 import axios from 'axios'
+import YearDocumentList from './components/YearDocumentList'
 
 
 const App = () => {
@@ -58,14 +59,14 @@ const App = () => {
 
   // Always allow access to admin page, regardless of database status
   const isAdminRoute = window.location.pathname === "/admin"
-  
+
   const checkDbStatus = useCallback(async () => {
     // Don't continuously check database status if on admin page
     if (isAdminRoute) {
       setAppReady(true)
       return
     }
-    
+
     try {
       const response = await axios.get(`/api/check-db-status`)
       if (response.status === 200) {
@@ -79,11 +80,11 @@ const App = () => {
       }, 1000)
     }
   }, [isAdminRoute])
-  
+
   useEffect(() => {
     checkDbStatus()
   }, [checkDbStatus])
-  
+
   if (appReady || isAdminRoute) {
     return (
       <Router>
@@ -99,6 +100,10 @@ const App = () => {
               placeholdertext={language === "fin" ? "Vuosi tai numero/vuosi tai avainsana" : "År eller nummer/år eller nyckelord"}
             />
             }
+            />
+            <Route key="lawpage" path="/lainsaadanto/:year"
+              element={<YearDocumentList />
+              }
             />
             <Route key="lawpage" path="/lainsaadanto/:year/:id"
               element={<DocumentPage language={language}  apipath="statute" />

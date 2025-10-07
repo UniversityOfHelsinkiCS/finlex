@@ -23,6 +23,4 @@ test('renders content', () => {
   const element2 = screen.getByText('321/2000')
   expect(element2).toBeDefined()
 
-
-
 })
