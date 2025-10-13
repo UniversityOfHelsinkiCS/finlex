@@ -22,8 +22,8 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
     let i = 0;
     for (const key of statutes) {
       ++i;
-      const url = buildFinlexUrl(key)
-      console.log('URL', url)
+      const { uri } = buildFinlexUrl(key)
+      console.log('URL', uri)
       await setSingleStatute(buildFinlexUrl(key));
       if (i % 100 === 0) {
         console.log(`Inserted ${i} statutes (${statutes.length})`)
@@ -376,12 +376,12 @@ async function closePool() {
 
 async function setupTestDatabase(): Promise<void> {
   await createTables();
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/9/fin@")
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/9/swe@")
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/4/fin@")
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/4/swe@")
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/5/fin@")
-  await setSingleStatute("https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/5/swe@")
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/9/fin@", uriOld: ''})
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/9/swe@", uriOld: ''})
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/4/fin@", uriOld: ''})
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/4/swe@", uriOld: ''})
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/5/fin@", uriOld: ''})
+  await setSingleStatute({ uri: "https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/2023/5/swe@", uriOld: ''})
   await setSingleJudgment("https://www.finlex.fi/fi/oikeuskaytanto/korkein-hallinto-oikeus/ennakkopaatokset/2005/13")
   await setSingleJudgment("https://www.finlex.fi/sv/rattspraxis/hogsta-forvaltningsdomstolen/prejudikat/2005/13")
   await setSingleJudgment("https://www.finlex.fi/fi/oikeuskaytanto/korkein-oikeus/ennakkopaatokset/2023/5")

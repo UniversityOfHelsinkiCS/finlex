@@ -40,12 +40,16 @@ function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docL
   }
 }
 
-function buildFinlexUrl(statute: StatuteKey): string {
-  // const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated';
-  // return `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`;
+function buildFinlexUrl(statute: StatuteKey): { uri: string, uriOld: string }  {
+  const oldBaseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated';
   const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute'
-  return `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@`;
+  return {
+    uri: `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@`,
+    uriOld: `${oldBaseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
+  };
 }
+
+
 
 function parseJudgmentUrl(url: string): JudgmentKey {
   const u = new URL(url)
@@ -323,10 +327,29 @@ async function setImages(statuteUuid: string, docYear: number, docNumber: string
   }
 }
 
-async function setSingleStatute(uri: string) {
-  const result = await axios.get(`${uri}`, {
-    headers: { 'Accept': 'application/xml', 'Accept-Encoding': 'gzip' }
-  })
+async function fetchStatute(uri: string) {
+  try {
+    const result = await axios.get(`${uri}`, {
+      headers: { 'Accept': 'application/xml', 'Accept-Encoding': 'gzip' }
+    })
+    return result
+  } catch {
+    return null
+  }
+}
+
+async function setSingleStatute(uris : { uri: string, uriOld: string}) {
+  const { uri, uriOld } = uris
+  let result = await fetchStatute(uri)
+  if (!result) {
+    result = await fetchStatute(uriOld)
+    if (!result) {
+      console.log(' --> not found: ', uri)
+      console.log('          --> : ', uriOld)
+      return null
+    }
+  }
+
   const docTitle = await parseTitlefromXML(result)
   const imageLinks = await parseImagesfromXML(result)
   const keywordList = await parseKeywordsfromXML(result)
