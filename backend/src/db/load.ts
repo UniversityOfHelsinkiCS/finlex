@@ -41,8 +41,10 @@ function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docL
 }
 
 function buildFinlexUrl(statute: StatuteKey): string {
-  const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated';
-  return `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`;
+  // const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated';
+  // return `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`;
+  const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute'
+  return `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@`;
 }
 
 function parseJudgmentUrl(url: string): JudgmentKey {
