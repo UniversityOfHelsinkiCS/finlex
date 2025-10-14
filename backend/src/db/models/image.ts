@@ -10,7 +10,8 @@ export async function setImage(image: Image) {
       return existingImage.uuid;
     }
   }
-  const sql = 'INSERT INTO images (uuid, name, mime_type, content) VALUES ($1, $2, $3, $4)';
+
+  const sql = 'INSERT INTO images (uuid, name, mime_type, content) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING';
   await query(sql, [image.uuid, image.name, image.mime_type, image.content]);
   return image.uuid;
 }
