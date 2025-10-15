@@ -61,7 +61,7 @@ const YearsPage = () => {
             }
           }
         })
-        
+
         const results = await Promise.all(promises)
         setYearData(results.sort((a, b) => b.year - a.year)) // Sort by year descending
         setError(null)
@@ -160,9 +160,9 @@ const YearsPage = () => {
   return (
     <div style={{ padding: '20px' }}>
       <h2 style={{ marginBottom: '20px', color: '#333' }}>
-        Lainsäädäntö vuosilta 1960-1970
+        Lainsäädäntö
       </h2>
-      
+
       {/* Summary Stats */}
       <div style={{
         display: 'grid',

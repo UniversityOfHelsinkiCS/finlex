@@ -41,14 +41,18 @@ function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docL
 }
 
 function buildFinlexUrl(statute: StatuteKey): { uri: string, uriOld: string }  {
-  const oldBaseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated';
-  const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute'
+  const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act'
+
   return {
-    uri: `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@`,
-    uriOld: `${baseUrl}/${statute.year}/${statute.number}/${statute.language}@`,
-    //uriOld: `${oldBaseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`,
-    //uri: `${oldBaseUrl}/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
+    uri: `${baseUrl}/statute/${statute.year}/${statute.number}/${statute.language}@`,
+    uriOld: `${baseUrl}/statute/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
   };
+  /*
+  return {
+    uriOld: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`,
+    uri: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
+  };
+  */
 }
 
 function parseJudgmentUrl(url: string): JudgmentKey {

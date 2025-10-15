@@ -6,6 +6,7 @@ const YearDocumentList = () => {
   const { year } = useParams<{ year: string }>()
 
   const [documents, setDocuments] = useState([])
+  const [sortAscending, setSortAscending] = useState(true)
   const lang = 'fin'
 
   useEffect(() => {
@@ -36,8 +37,25 @@ const YearDocumentList = () => {
         <h3>Stautues of {year}</h3>
         <p>total: {documents.length}</p>
         <p>empty: {documents.filter((doc: any) => doc.isEmpty).length}</p>
+        <p>percentage empty: <span style={{ color: documents.filter((doc: any) => doc.isEmpty).length / documents.length > 0.5 ? 'red' : 'green' }}>
+          {((documents.filter((doc: any) => doc.isEmpty).length / documents.length) * 100).toFixed(1)}%
+        </span></p>
       </div>
 
+
+      <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+        {year && parseInt(year) > 1900 && (
+          <a href={`/lainsaadanto/${parseInt(year) - 1}`} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+            ← {parseInt(year) - 1}
+          </a>
+        )}
+        {year && parseInt(year) < 2025 && (
+          <a href={`/lainsaadanto/${parseInt(year) + 1}`} style={{ padding: '8px 16px', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+            {parseInt(year) + 1} →
+          </a>
+        )}
+        <button onClick={() => setSortAscending(!sortAscending)}>asc</button>
+      </div>
       <table>
         <thead>
           <tr>
@@ -50,7 +68,7 @@ const YearDocumentList = () => {
         </thead>
         <tbody>
           {documents
-            .sort((a: any, b: any) => (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0))
+            .sort((a: any, b: any) => sortAscending ? (a.isEmpty ? 1 : 0) - (b.isEmpty ? 1 : 0) : (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0))
             .map((doc: any, index: number) => (
               <tr key={index}>
                 <td>{doc.docNumber}</td>
@@ -58,14 +76,14 @@ const YearDocumentList = () => {
                 <td>{doc.docYear}</td>
                 <td>{doc.docVersion || 'N/A'}</td>
                 <td>{doc.isEmpty &&
-                  <>
-                    <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
-                      API
-                    </a>
-                    <a href={getFlexUrl(doc.docNumber)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
-                      finlex
-                    </a>
-                  </>
+                <>
+                  <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
+                  API
+                  </a>
+                  <a href={getFlexUrl(doc.docNumber)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
+                  finlex
+                  </a>
+                </>
                 }
                 </td>
               </tr>
