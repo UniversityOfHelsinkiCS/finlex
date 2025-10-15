@@ -68,7 +68,13 @@ const YearDocumentList = () => {
         </thead>
         <tbody>
           {documents
-            .sort((a: any, b: any) => sortAscending ? (a.isEmpty ? 1 : 0) - (b.isEmpty ? 1 : 0) : (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0))
+            .sort((a: any, b: any) => {
+              const isEmptySort = sortAscending ? (a.isEmpty ? 1 : 0) - (b.isEmpty ? 1 : 0) : (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0)
+              if (isEmptySort === 0) {
+                return sortAscending ? a.docNumber - b.docNumber : b.docNumber - a.docNumber
+              }
+              return isEmptySort
+            })
             .map((doc: any, index: number) => (
               <tr key={index}>
                 <td>{doc.docNumber}</td>
@@ -76,14 +82,14 @@ const YearDocumentList = () => {
                 <td>{doc.docYear}</td>
                 <td>{doc.docVersion || 'N/A'}</td>
                 <td>{doc.isEmpty &&
-                <>
-                  <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
-                  API
-                  </a>
-                  <a href={getFlexUrl(doc.docNumber)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
-                  finlex
-                  </a>
-                </>
+              <>
+                <a href={getApiUrl(doc.docNumber, doc.docVersion)} target="_blank" rel="noopener noreferrer">
+                API
+                </a>
+                <a href={getFlexUrl(doc.docNumber)} style={{ marginLeft: 10 }} target="_blank" rel="noopener noreferrer">
+                finlex
+                </a>
+              </>
                 }
                 </td>
               </tr>
