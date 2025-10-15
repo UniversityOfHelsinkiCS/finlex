@@ -55,6 +55,7 @@ const YearDocumentList = () => {
           </a>
         )}
         <button onClick={() => setSortAscending(!sortAscending)}>asc</button>
+        <a href='/summary'>summary</a>
       </div>
       <table>
         <thead>
