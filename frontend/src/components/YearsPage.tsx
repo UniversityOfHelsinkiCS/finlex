@@ -29,7 +29,7 @@ const YearsPage = () => {
     const fetchAllYears = async () => {
       try {
         setLoading(true)
-        const years = Array.from({ length: 20 }, (_, i) => 1960 + i) // 1960-1970
+        const years = Array.from({ length: 76 }, (_, i) => 1950 + i)
 
         const promises = years.map(async (year) => {
           try {
