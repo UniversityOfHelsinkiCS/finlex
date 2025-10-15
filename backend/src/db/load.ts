@@ -498,9 +498,7 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
   console.log(`listStatutesByYear: ${year} filtered to ${latestVersions.length} latest versions in ${language}`);
 
   return latestVersions;
-
 }
-
 
 async function listJudgmentNumbersByYear(year: number, language: string, level: string): Promise<string[]> {
   let courtLevel = {

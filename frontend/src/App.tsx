@@ -12,6 +12,7 @@ import { Helmet } from "react-helmet"
 import { ThreeDot } from 'react-loading-indicators'
 import axios from 'axios'
 import YearDocumentList from './components/YearDocumentList'
+import YearsPage from './components/YearsPage'
 
 
 const App = () => {
@@ -124,6 +125,7 @@ const App = () => {
               element={<DocumentPage language={language} apipath="judgment" />
               }
             />
+            <Route key="admin" path="/summary" element={<YearsPage />} />
             <Route key="admin" path="/admin" element={<AdminPage language={language} />} />
           </Routes>
         </div>
