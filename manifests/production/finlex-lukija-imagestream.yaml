@@ -12,7 +12,7 @@ spec:
     - name: production
       from:
         kind: DockerImage
-        name: arttkan/finlex-lukija:production
+        name: toska/finlex:production
       importPolicy:
         scheduled: true
       referencePolicy:
