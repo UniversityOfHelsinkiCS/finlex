@@ -9,6 +9,8 @@ services:
       POSTGRES_DB: testdb
     ports:
       - "5432:5432"
+    volumes:
+      - finlex-db-data:/data
   typesense:
     build:
       context: .
@@ -18,3 +20,5 @@ services:
       TYPESENSE_DATA_DIR: /tmp
     ports:
       - "8108:8108"
+volumes:
+  finlex-db-data:

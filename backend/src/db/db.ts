@@ -243,7 +243,9 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
 
 async function createTables(): Promise<void> {
   try {
+    console.log('ennen poolia')
     const client = await pool.connect();
+    console.log("taulut");
     await client.query(`
       CREATE TABLE IF NOT EXISTS images (
         uuid UUID PRIMARY KEY,
@@ -323,6 +325,7 @@ async function createTables(): Promise<void> {
     console.error('Error creating tables:', error);
     throw error;
   }
+  console.log('Tables created successfully');
 }
 
 async function dropTables(): Promise<void> {

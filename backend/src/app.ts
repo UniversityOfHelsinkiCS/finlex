@@ -7,6 +7,7 @@ import keywordRouter from './controllers/keyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
+import { addStatusRow, createTables } from './db/db.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -26,7 +27,8 @@ app.get('/api/check-db-status', async (req: express.Request, res: express.Respon
   }
 });
 
-app.get('/api/ping', (req, res) => {
+app.get('/api/ping', async (req, res) => {
+  await createTables();
   res.send({ data: 'pong' })
 })
 
@@ -36,14 +38,29 @@ app.post('/api/setup', async (req: express.Request, res: express.Response): Prom
 
     setImmediate(async () => {
       try {
+        console.log('[SETUP] Starting database setup...');
         await runSetup();
-        console.log('Setup completed successfully');
+        console.log('[SETUP] Setup completed successfully');
       } catch (error) {
-        console.error('Setup failed:', error);
+        console.error('[SETUP] Setup failed with error:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        try {
+          await addStatusRow(
+            { 
+              message: 'setup_failed', 
+              error: errorMessage,
+              timestamp: new Date().toISOString()
+            }, 
+            false
+          );
+          console.log('[SETUP] Wrote error status to database');
+        } catch (dbError) {
+          console.error('[SETUP] Failed to write error status to database:', dbError);
+        }
       }
     });
   } catch (error) {
-    console.error('Setup endpoint error:', error);
+    console.error('[SETUP] Setup endpoint error:', error);
     res.status(500).json({ error: 'Failed to start setup' });
   }
 });
