@@ -7,14 +7,11 @@ import { yearFrom, yearTo } from "./util/config.js";
 setPool(process.env.PG_URI ?? '');
 
 async function initDatabase() {
-  console.log('[DB] Creating tables if they do not exist...');
-  await createTables();
-  console.log('[DB] Tables created successfully.');
   try {
     console.log('[DB] Checking if database is ready...');
     if (!await dbIsReady()) {
       console.log('[DB] Database is not ready, creating tables...');
-      
+      await createTables();
       console.log('[DB] Tables created successfully.');
     } else {
       console.log('[DB] Database is ready.');
@@ -22,8 +19,6 @@ async function initDatabase() {
 
     await clearStatusRows();
     await addStatusRow({ message: 'updating', from: yearFrom(), to: yearTo() }, true);
-    console.log('[DB] Status row inserted with updating=true');
-
     console.log('[DB] Checking if database is up to date...');
     const { upToDate, statutes, judgments } = await dbIsUpToDate();
 
@@ -39,12 +34,11 @@ async function initDatabase() {
 
   } catch (error) {
     console.error('[DB] Error initializing database:', error);
-    throw error; // Re-throw so runSetup() catches it and writes error status
+    throw error;
   }
 }
 
 export const runSetup = async () => {
-  await createTables();
   try {
     if (process.env.NODE_ENV === 'test') {
       console.log('[SETUP] Running in test mode...');
@@ -75,6 +69,6 @@ export const runSetup = async () => {
     console.log('[SETUP] Database setup done.');
   } catch (error) {
     console.error('[SETUP] Setup failed:', error);
-    throw error; // Re-throw so app.ts error handler can write error status
+    throw error;
   }
 }
