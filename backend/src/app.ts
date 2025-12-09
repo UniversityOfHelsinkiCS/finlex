@@ -28,7 +28,6 @@ app.get('/api/check-db-status', async (req: express.Request, res: express.Respon
 });
 
 app.get('/api/ping', async (req, res) => {
-  await createTables();
   res.send({ data: 'pong' })
 })
 
