@@ -32,7 +32,6 @@ app.get('/api/ping', async (req, res) => {
   res.send({ data: 'pong' })
 })
 
-// Expose a small config endpoint so frontend can show current START_YEAR
 app.get('/api/config', (req, res) => {
   try {
     res.status(200).json({ startYear: yearFrom(), endYear: yearTo() });

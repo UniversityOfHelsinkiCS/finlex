@@ -11,6 +11,12 @@ services:
       - "5432:5432"
     volumes:
       - finlex-db-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d testdb"]
+      interval: 1s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
   typesense:
     build:
       context: .
@@ -20,5 +26,23 @@ services:
       TYPESENSE_DATA_DIR: /tmp
     ports:
       - "8108:8108"
+  app:
+    build:
+      context: .
+      dockerfile: e2e/Dockerfile.app
+    environment:
+      PG_URI: postgresql://postgres:postgres@postgres:5432/testdb
+      TYPESENSE_HOST: typesense
+      TYPESENSE_PORT: 8108
+      TYPESENSE_API_KEY: xyz
+      START_YEAR: 2024
+      NODE_ENV: production
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      typesense:
+        condition: service_started
 volumes:
   finlex-db-data:

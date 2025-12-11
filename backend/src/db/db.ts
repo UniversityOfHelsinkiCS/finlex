@@ -50,7 +50,9 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 
 async function dbIsReady(): Promise<boolean> {
   try {
+    console.log('tsekataan db')
     const client = await pool.connect();
+    console.log('yli poolin')
     let result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'images');")
     const imagesExists = result.rows[0].exists;
 
@@ -244,9 +246,7 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
 
 async function createTables(): Promise<void> {
   try {
-    console.log('ennen poolia')
     const client = await pool.connect();
-    console.log("taulut");
     await client.query(`
       CREATE TABLE IF NOT EXISTS images (
         uuid UUID PRIMARY KEY,
