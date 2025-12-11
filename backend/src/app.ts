@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables } from './db/db.js';
+import { yearFrom, yearTo } from './util/config.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -31,14 +32,26 @@ app.get('/api/ping', async (req, res) => {
   res.send({ data: 'pong' })
 })
 
+// Expose a small config endpoint so frontend can show current START_YEAR
+app.get('/api/config', (req, res) => {
+  try {
+    res.status(200).json({ startYear: yearFrom(), endYear: yearTo() });
+  } catch (error) {
+    console.error('Config endpoint error:', error);
+    res.status(500).json({ error: 'Failed to get config' });
+  }
+})
+
 app.post('/api/setup', async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     res.status(200).json({ status: 'started', message: 'Database update started in background' });
     setImmediate(async () => {
       try {
-        console.log('[SETUP] Starting database setup...');
-        await runSetup();
-        console.log('[SETUP] Setup completed successfully');
+        console.info('Database setup started');
+        const body: any = req.body || {}
+        const startYear = body.startYear !== undefined ? parseInt(body.startYear as any, 10) : undefined
+        await runSetup(startYear);
+        console.info('Database setup completed');
       } catch (error) {
         console.error('[SETUP] Setup failed with error:', error);
         const errorMessage = error instanceof Error ? error.message : String(error);

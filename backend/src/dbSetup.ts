@@ -6,7 +6,7 @@ import { yearFrom, yearTo } from "./util/config.js";
 
 setPool(process.env.PG_URI ?? '');
 
-async function initDatabase() {
+async function initDatabase(startYear?: number) {
   try {
     console.log('[DB] Checking if database is ready...');
     if (!await dbIsReady()) {
@@ -18,9 +18,11 @@ async function initDatabase() {
     }
 
     await clearStatusRows();
-    await addStatusRow({ message: 'updating', from: yearFrom(), to: yearTo() }, true);
+    const from = startYear ?? yearFrom();
+    const to = yearTo();
+    await addStatusRow({ message: 'updating', from, to }, true);
     console.log('[DB] Checking if database is up to date...');
-    const { upToDate, statutes, judgments } = await dbIsUpToDate();
+    const { upToDate, statutes, judgments } = await dbIsUpToDate(from);
 
     console.log('[DB] Up to date:', upToDate, 'missing statutes:', statutes.length, 'missing judgements:', judgments.length);
 
@@ -38,7 +40,7 @@ async function initDatabase() {
   }
 }
 
-export const runSetup = async () => {
+export const runSetup = async (startYear?: number) => {
   try {
     if (process.env.NODE_ENV === 'test') {
       console.log('[SETUP] Running in test mode...');
@@ -47,7 +49,7 @@ export const runSetup = async () => {
       console.log('[SETUP] Running in production mode...');
       
       console.log('[SETUP] Step 1: Initialize database...');
-      await initDatabase();
+      await initDatabase(startYear);
       
       console.log('[SETUP] Step 2: Clear and sync Typesense collections...');
       await deleteCollection('statutes', 'fin');
@@ -64,7 +66,9 @@ export const runSetup = async () => {
       await syncJudgments('swe');
 
       console.log('[SETUP] Step 5: Write completion status...');
-      await addStatusRow({ message: 'updated', from: yearFrom(), to: yearTo(), timestamp: new Date().toISOString() }, false);
+      const from = startYear ?? yearFrom();
+      const to = yearTo();
+      await addStatusRow({ message: 'updated', from, to, timestamp: new Date().toISOString() }, false);
     }
     console.log('[SETUP] Database setup done.');
   } catch (error) {

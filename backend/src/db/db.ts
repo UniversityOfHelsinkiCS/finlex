@@ -85,7 +85,7 @@ async function dbIsReady(): Promise<boolean> {
   }
 }
 
-async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[], judgments: JudgmentKey[]}> {
+async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, statutes: StatuteKey[], judgments: JudgmentKey[]}> {
   console.log('Checking if database is up to date...');
 
   async function compareStatuteCount(year: number): Promise<boolean> {
@@ -218,7 +218,8 @@ async function dbIsUpToDate(): Promise<{upToDate: boolean, statutes: StatuteKey[
     const judgments: JudgmentKey[] = [];
     let upToDate = true;
     const currentYear = yearTo()
-    for (let year = yearFrom(); year <= currentYear + 1; year++) {
+    const start = startYear ?? yearFrom()
+    for (let year = start; year <= currentYear + 1; year++) {
 
       if (!await compareStatuteCount(year)) {
         console.log(`Statutes for year ${year} are not up to date`);

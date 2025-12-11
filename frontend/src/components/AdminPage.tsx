@@ -19,7 +19,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const [error, setError] = useState('')
   const [latestStatus, setLatestStatus] = useState<StatusEntry | null>(null)
   const [hasStartedUpdate, setHasStartedUpdate] = useState(false)
+  const [startYearInput, setStartYearInput] = useState<string>('')
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
+  const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
 
   const pollLatestStatus = async () => {
     try {
@@ -51,6 +53,25 @@ const AdminPage = ({ language }: AdminPageProps) => {
     }
   }, [])
 
+  // Fetch backend config (current START_YEAR) and prefill input if empty
+  useEffect(() => {
+    let mounted = true
+    const fetchConfig = async () => {
+      try {
+        const resp = await axios.get('/api/config')
+        const sy = resp.data?.startYear
+        if (mounted && typeof sy === 'number') {
+          setDefaultStartYear(sy)
+          if (startYearInput.trim() === '') setStartYearInput(String(sy))
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    fetchConfig()
+    return () => { mounted = false }
+  }, [])
+
   const handleUpdate = async () => {
     setIsUpdating(true)
     setMessage('')
@@ -59,7 +80,12 @@ const AdminPage = ({ language }: AdminPageProps) => {
     setHasStartedUpdate(true)
 
     try {
-      const response = await axios.post('/api/setup')
+      const payload: Record<string, unknown> = {}
+      if (startYearInput.trim() !== '') {
+        const yearNum = parseInt(startYearInput, 10)
+        if (!Number.isNaN(yearNum)) payload.startYear = yearNum
+      }
+      const response = await axios.post('/api/setup', payload)
       setMessage(language === 'fin'
         ? 'Päivitys aloitettu!'
         : 'Uppdatering startad!'
@@ -232,6 +258,17 @@ const AdminPage = ({ language }: AdminPageProps) => {
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '10px' }}>
+              <label style={{ fontSize: '14px' }}>{language === 'fin' ? 'Aloitusvuosi, oletuksena .env START_YEAR:' : 'Startår:'}</label>
+              <input
+                type="number"
+                value={startYearInput}
+                onChange={(e) => setStartYearInput(e.target.value)}
+                placeholder={defaultStartYear !== null ? String(defaultStartYear) : (language === 'fin' ? 'Oletus .env START_YEAR' : 'Default from .env START_YEAR')}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '140px' }}
+              />
+            </div>
+
             <button
               style={buttonStyle}
               onClick={handleUpdate}
