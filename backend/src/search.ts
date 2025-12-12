@@ -328,7 +328,7 @@ export async function deleteCollection(name: string, lang: string) {
 
 
 export async function searchStatutes(lang: string, queryStr: string): Promise<StatuteSearchResult[]> {
-  const searchParameters: SearchParams<Record<string, any>> = {
+  const searchParameters: any = {
     q: queryStr,
     query_by: "title,common_names,keywords,headings,year,number,paragraphs",
     query_by_weights: "50,49,48,20,15,10,1",
@@ -350,7 +350,7 @@ export async function searchStatutes(lang: string, queryStr: string): Promise<St
 
 
 export async function searchJudgments(lang: string, queryStr: string, level: string): Promise<JudgmentSearchResult[]> {
-  const searchParameters: SearchParams<Record<string, any>> = {
+  const searchParameters: any = {
     q: queryStr,
     query_by: "keywords,level,year,number,headings,paragraphs",
     query_by_weights: "60,50,49,48,10,1",
