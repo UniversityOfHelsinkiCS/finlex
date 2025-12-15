@@ -24,6 +24,8 @@ docker compose up
     - ~180 kyselyä minuutissa / IP-osoite (Kysyin Finlex-deviltä)
     - Ei todnäk ongelma päätietokantaa päivitellessä inkrementaalisesti
     - Tarve kuitenkin saada toimimaan, että saa tarvittaessa tyhjästä uuden tietokannan pystyyn
+- Status-taulukon käyttäytyminen vähän jank
+    - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
 
 ## Tietokannan päivitys/synkronointi
 
