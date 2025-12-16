@@ -21,6 +21,7 @@ docker compose up
 - Finlexin rate limitingille rate limiter [DONE]
 - Status-taulukon käyttäytyminen vähän jank
     - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
+. Kirjautuminen tms. Admin-näkymään
 
 ## Tietokannan päivitys/synkronointi
 
