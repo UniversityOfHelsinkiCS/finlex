@@ -24,8 +24,6 @@ async function initDatabase(startYear?: number) {
     console.log('[DB] Checking if database is up to date...');
     const { upToDate, statutes, judgments } = await dbIsUpToDate(from);
 
-    console.log('[DB] Up to date:', upToDate, 'missing statutes:', statutes.length, 'missing judgements:', judgments.length);
-
     if (!upToDate) {
       console.log('[DB] Database is not up to date, filling database...');
       await fillDb(statutes, judgments);

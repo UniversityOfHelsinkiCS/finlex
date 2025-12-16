@@ -23,9 +23,8 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
     for (const key of statutes) {
       ++i;
       const { uri } = buildFinlexUrl(key)
-      console.log('URL', uri)
       await setSingleStatute(buildFinlexUrl(key));
-      if (i % 100 === 0) {
+      if (i % 50 === 0) {
         console.log(`Inserted ${i} statutes (${statutes.length})`)
       }
     }
@@ -50,9 +49,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 
 async function dbIsReady(): Promise<boolean> {
   try {
-    console.log('tsekataan db')
     const client = await pool.connect();
-    console.log('yli poolin')
     let result = await client.query("SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'images');")
     const imagesExists = result.rows[0].exists;
 
@@ -166,7 +163,7 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
 
     if (missingStatutes.length > 0) {
       //console.log(existingStatutesFin)
-      console.log('missingStatutes', missingStatutes, missingStatutes.length)
+      //console.log('missingStatutes', missingStatutes, missingStatutes.length)
     }
 
 
@@ -209,7 +206,7 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
     }
 
     if (missingJudgments.length > 0) {
-      console.log('missingJudgments', missingJudgments, missingJudgments.length)
+      //console.log('missingJudgments', missingJudgments, missingJudgments.length)
     }
 
     return missingJudgments;

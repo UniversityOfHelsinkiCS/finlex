@@ -15,6 +15,61 @@ import xmldom from '@xmldom/xmldom';
 import { JSDOM } from 'jsdom';
 import { XMLParser } from 'fast-xml-parser';
 import { getLatestStatuteVersions } from '../util/parse.js';
+import Bottleneck from 'bottleneck';
+
+const finlexLimiter = new Bottleneck({
+  minTime: 350,
+  maxConcurrent: 1,
+  reservoir: 200,
+  reservoirRefreshInterval: 60 * 1000,
+  reservoirRefreshAmount: 200,
+});
+
+let finlexRequestCount = 0;
+let lastMinuteCount = 0;
+finlexLimiter.on('executing', () => {
+  finlexRequestCount += 1;
+});
+
+// Report request count every minute
+setInterval(() => {
+  const requestsThisMinute = finlexRequestCount - lastMinuteCount;
+  console.log(`[finlexLimiter] ${requestsThisMinute} requests in last minute (${finlexRequestCount} total)`);
+  lastMinuteCount = finlexRequestCount;
+}, 60 * 1000);
+
+// Generic fetch with exponential backoff and jitter, still honoring the limiter.
+async function fetchWithBackoff<T = unknown>(url: string, config: any, opts?: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number; retryOn?: (status: number) => boolean }): Promise<AxiosResponse<T>> {
+  const maxRetries = opts?.maxRetries ?? 5;
+  const baseDelayMs = opts?.baseDelayMs ?? 500; // initial backoff
+  const maxDelayMs = opts?.maxDelayMs ?? 8000; // cap
+  const retryOn = opts?.retryOn ?? ((status) => status === 429 || (status >= 500 && status < 600));
+
+  let attempt = 0;
+  while (true) {
+    try {
+      // Schedule on limiter to enforce rate limits
+      const resp = await finlexLimiter.schedule(() => axios.get<T>(url, config));
+      return resp;
+    } catch (error) {
+      if (!axios.isAxiosError(error)) throw error;
+      const status = error.response?.status ?? 0;
+      attempt += 1;
+      if (attempt > maxRetries || !retryOn(status)) {
+        throw error;
+      }
+      // Respect Retry-After header when present
+      const retryAfterHeader = error.response?.headers?.['retry-after'];
+      let delayMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : Math.min(maxDelayMs, baseDelayMs * Math.pow(2, attempt - 1));
+      // Apply jitter (+/- 30%)
+      const jitter = delayMs * (Math.random() * 0.6 - 0.3);
+      delayMs = Math.max(250, delayMs + jitter);
+      console.log(`[backoff] attempt ${attempt}/${maxRetries} status ${status}, delaying ${Math.round(delayMs)}ms for ${url}`);
+      await new Promise(res => setTimeout(res, delayMs));
+      // Loop and retry
+    }
+  }
+}
 
 
 function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docLanguage: string; docVersion: string | null } {
@@ -254,7 +309,7 @@ function parseURLfromJudgmentID(judgmentID: string): string {
 }
 
 async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ content: string; is_empty: boolean, keywords: string[] }> {
-  const result = await axios.get(inputURL, {
+  const result = await fetchWithBackoff<string>(inputURL, {
     headers: { 'Accept': 'text/html', 'Accept-Encoding': 'gzip' }
   });
   const inputHTML = result.data as string;
@@ -304,10 +359,10 @@ async function setImages(statuteUuid: string, docYear: number, docNumber: string
     const path = `/akn/fi/act/statute-consolidated/${docYear}/${docNumber}/${language}@${version ?? ''}/${uri}`
     const url = `${baseURL}${path}`
     try {
-      const result = await axios.get(url, {
+      const result = await fetchWithBackoff<ArrayBuffer>(url, {
         headers: { 'Accept': 'image/*', 'Accept-Encoding': 'gzip' },
         responseType: 'arraybuffer'
-      })
+      });
 
       const name = uri.split('/').pop()
       if (!name) {
@@ -319,7 +374,7 @@ async function setImages(statuteUuid: string, docYear: number, docNumber: string
         uuid: imageUuid,
         name: name,
         mime_type: result.headers['content-type'],
-        content: result.data as Buffer,
+        content: Buffer.from(result.data as ArrayBuffer),
       }
 
       imageUuid = await setImage(image)
@@ -333,9 +388,9 @@ async function setImages(statuteUuid: string, docYear: number, docNumber: string
 
 async function fetchStatute(uri: string) {
   try {
-    const result = await axios.get(`${uri}`, {
+    const result = await fetchWithBackoff<string>(`${uri}`, {
       headers: { 'Accept': 'application/xml', 'Accept-Encoding': 'gzip' }
-    })
+    });
     return result
   } catch {
     return null
@@ -462,13 +517,15 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
 
     try {
       while (true) {
-        const result = await axios.get<StatuteVersionResponse[]>(`${baseURL}${path}`, {
+        const result = await finlexLimiter.schedule(() => axios.get<StatuteVersionResponse[]>(`${baseURL}${path}`, {
           params: queryParams,
           headers: {
             Accept: 'application/json',
             'Accept-Encoding': 'gzip'
           }
-        });
+        }));
+        // Optionally we could use fetchWithBackoff here as well, but since pagination drives many calls
+        // and limiter already smooths throughput, keeping as-is to avoid excessive retries.
 
         if (!Array.isArray(result.data)) {
           throw new Error('Invalid response format: expected an array');
@@ -487,8 +544,8 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
       if (axios.isAxiosError(error)) {
         console.error(`Failed to fetch statute versions for year ${year}, type ${typeStatute}: ${error.message}`);
         if (error.response) {
-          console.error('Response status:', error.response.status);
-          console.error('Response data:', error.response.data);
+          //console.error('Response status:', error.response.status);
+          //console.error('Response data:', error.response.data);
         }
       } else {
         console.error(`Unexpected error while fetching statute versions: ${error}`);
@@ -519,7 +576,7 @@ async function listJudgmentNumbersByYear(year: number, language: string, level: 
     : `https://finlex.fi/sv/rattspraxis/${courtLevel.sv}/prejudikat/${year}`;
   let parsedList: string[] = [];
   try {
-    const result = await axios.get(inputUrl, {
+    const result = await fetchWithBackoff<string>(inputUrl, {
       headers: { 'Accept': 'text/html', 'Accept-Encoding': 'gzip' }
     });
     const inputHTML = result.data as string;

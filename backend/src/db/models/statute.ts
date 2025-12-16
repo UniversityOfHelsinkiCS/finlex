@@ -23,7 +23,6 @@ export async function getStatuteCountByYear(year: number): Promise<number> {
 }
 
 export async function getStatutesByYear(year: number, language: string): Promise<StatuteListItem[]> {
-  console.log('getStatutesByYear', year)
   const sql = 'SELECT title as "docTitle", number as "docNumber", year as "docYear", is_empty as "isEmpty", version as "docVersion" FROM statutes WHERE year = $1 AND language = $2 ORDER BY is_empty ASC, number ASC';
   const result = await query(sql, [year, language]);
   return result.rows;
