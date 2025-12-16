@@ -32,15 +32,19 @@ finlexLimiter.on('executing', () => {
 });
 
 // Report request count every minute
-setInterval(() => {
+const finlexLogInterval = setInterval(() => {
   const requestsThisMinute = finlexRequestCount - lastMinuteCount;
   console.log(`[finlexLimiter] ${requestsThisMinute} requests in last minute (${finlexRequestCount} total)`);
   lastMinuteCount = finlexRequestCount;
 }, 60 * 1000);
 
+export function stopFinlexLimiterLogging() {
+  clearInterval(finlexLogInterval);
+}
+
 // Generic fetch with exponential backoff and jitter, still honoring the limiter.
 async function fetchWithBackoff<T = unknown>(url: string, config: any, opts?: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number; retryOn?: (status: number) => boolean }): Promise<AxiosResponse<T>> {
-  const maxRetries = opts?.maxRetries ?? 5;
+  const maxRetries = opts?.maxRetries ?? 10;
   const baseDelayMs = opts?.baseDelayMs ?? 500; // initial backoff
   const maxDelayMs = opts?.maxDelayMs ?? 8000; // cap
   const retryOn = opts?.retryOn ?? ((status) => status === 429 || (status >= 500 && status < 600));

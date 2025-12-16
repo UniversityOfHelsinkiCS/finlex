@@ -1,4 +1,5 @@
 import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows } from "./db/db.js";
+import { stopFinlexLimiterLogging } from "./db/load.js";
 import './util/config.js';
 import { exit } from 'process';
 import { syncStatutes, deleteCollection, syncJudgments } from "./search.js";
@@ -68,6 +69,7 @@ export const runSetup = async (startYear?: number) => {
       const to = yearTo();
       await addStatusRow({ message: 'updated', from, to, timestamp: new Date().toISOString() }, false);
     }
+    stopFinlexLimiterLogging();
     console.log('[SETUP] Database setup done.');
   } catch (error) {
     console.error('[SETUP] Setup failed:', error);
