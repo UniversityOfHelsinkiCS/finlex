@@ -7,7 +7,7 @@ import keywordRouter from './controllers/keyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
-import { addStatusRow, createTables } from './db/db.js';
+import { addStatusRow, createTables, dropTables } from './db/db.js';
 import { yearFrom, yearTo } from './util/config.js';
 
 const app = express()
@@ -110,6 +110,27 @@ app.delete('/api/status', async (req: express.Request, res: express.Response): P
   } catch (error) {
     console.error('Clear status endpoint error:', error);
     res.status(500).json({ error: 'Failed to clear status entries' });
+  }
+});
+
+
+app.delete('/api/delete-database', async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const started = Date.now();
+    await addStatusRow({ action: 'db_clear_start', startedAt: new Date().toISOString() }, true);
+
+    await dropTables();
+    console.log('All tables dropped');
+    await createTables();
+    console.log('Schema recreated');
+    const deletedCount = await clearAllStatusEntries();
+
+    const ms = Date.now() - started;
+    await addStatusRow({ action: 'db_clear_complete', durationMs: ms, completedAt: new Date().toISOString() }, false);
+    res.status(200).json({ message: 'Database cleared and schema recreated', deletedStatusEntries: deletedCount, durationMs: ms });
+  } catch (error) {
+    console.error('Clear database endpoint error:', error);
+    res.status(500).json({ error: 'Failed to clear database' });
   }
 });
 
