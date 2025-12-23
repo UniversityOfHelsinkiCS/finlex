@@ -58,12 +58,14 @@ const App = () => {
     width: '300px',
   }
 
-  // Always allow access to admin page, regardless of database status
-  const isAdminRoute = window.location.pathname === "/admin"
+  const isExemptRoute = () => {
+    const path = window.location.pathname
+    return path === "/admin" || 
+           path === "/summary" 
+  }
 
   const checkDbStatus = useCallback(async () => {
-    // Don't continuously check database status if on admin page
-    if (isAdminRoute) {
+    if (isExemptRoute()) {
       setAppReady(true)
       return
     }
@@ -80,13 +82,13 @@ const App = () => {
         checkDbStatus()
       }, 1000)
     }
-  }, [isAdminRoute])
+  }, [])
 
   useEffect(() => {
     checkDbStatus()
   }, [checkDbStatus])
 
-  if (appReady || isAdminRoute) {
+  if (appReady || isExemptRoute()) {
     return (
       <Router>
         <div>
