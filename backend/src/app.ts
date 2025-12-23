@@ -9,10 +9,33 @@ import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables } from './db/db.js';
 import { yearFrom, yearTo } from './util/config.js';
+import { getRecentLogs, pushLog } from './util/logBuffer.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const originalLog = console.log;
+const originalInfo = console.info;
+const originalWarn = console.warn;
+const originalError = console.error;
+
+console.log = (...args: unknown[]) => {
+  pushLog('log', args);
+  originalLog(...args);
+};
+console.info = (...args: unknown[]) => {
+  pushLog('info', args);
+  originalInfo(...args);
+};
+console.warn = (...args: unknown[]) => {
+  pushLog('warn', args);
+  originalWarn(...args);
+};
+console.error = (...args: unknown[]) => {
+  pushLog('error', args);
+  originalError(...args);
+};
 
 
 app.use(express.json());
@@ -98,6 +121,13 @@ app.get('/api/status/latest', async (req: express.Request, res: express.Response
     console.error('Latest status endpoint error:', error);
     res.status(500).json({ error: 'Failed to get latest status entry' });
   }
+});
+
+// Return recent application logs (from in-memory buffer)
+app.get('/api/logs', (req: express.Request, res: express.Response): void => {
+  const limitParam = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+  const logs = getRecentLogs(limitParam);
+  res.status(200).json(logs);
 });
 
 app.delete('/api/status', async (req: express.Request, res: express.Response): Promise<void> => {
