@@ -21,7 +21,11 @@ docker compose up
 - Finlexin rate limitingille rate limiter [DONE]
 - Status-taulukon käyttäytyminen vähän jank
     - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
-. Kirjautuminen tms. Admin-näkymään
+    - välillä näyttää väärää viestiä kun klikkailee päivitystä
+- Kirjautuminen tms. Admin-näkymään
+- Parempi päivityslogiikka?
+  - Jättää nyt joitain välistä, en tiedä onko 429ien takia, pitäisi parantaa lokitusta/backoffia/retryjä
+  - Ylimääräisten poisto
 
 ## Tietokannan päivitys/synkronointi
 
