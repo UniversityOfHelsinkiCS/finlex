@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /*
   Compare search results between two Finlex services.
-  Usage:
-    node scripts/compareSearch.js --q tupakka --language fin 
-    node scripts/compareSearch.js --q tupakka --language fin --prod https://... --staging https://...
-    node scripts/compareSearch.js --file words.txt --language fin
+  Usage (run from repo root):
+    node backend/scripts/compareSearch.js --q tupakka --language fin 
+    node backend/scripts/compareSearch.js --q tupakka --language fin --app1 http://... --app2 http://...
+    node backend/scripts/compareSearch.js --file backend/scripts/queries.txt --language fin
 */
 
 import axios from 'axios';
@@ -12,14 +12,14 @@ import { readFileSync } from 'fs';
 
 function parseArgs() {
   const args = process.argv.slice(2);
-  const out = { q: null, file: null, language: 'fin', prod: 'https://finlex.ext.ocp-prod-0.k8s.it.helsinki.fi', staging: 'https://finlex-lukija-ohtuprojekti-staging.ext.ocp-prod-0.k8s.it.helsinki.fi' };
+  const out = { q: null, file: null, language: 'fin', app1: 'https://finlex-lukija-ohtuprojekti-staging.ext.ocp-prod-0.k8s.it.helsinki.fi', app2: 'https://finlex-lukija2-ohtuprojekti-staging.ext.ocp-prod-0.k8s.it.helsinki.fi' };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === '--q') out.q = args[++i];
     else if (a === '--file') out.file = args[++i];
     else if (a === '--language') out.language = args[++i];
-    else if (a === '--prod') out.prod = args[++i];
-    else if (a === '--staging') out.staging = args[++i];
+    else if (a === '--app1') out.app1 = args[++i];
+    else if (a === '--app2') out.app2 = args[++i];
   }
   if (!out.q && !out.file) {
     console.error('Missing --q query parameter or --file path');
@@ -65,28 +65,28 @@ function diffLists(aList, bList) {
   return { onlyA, onlyB };
 }
 
-async function compareQuery(q, language, prod, staging) {
-  const prodUrl = buildUrl(prod, q, language);
-  const stagingUrl = buildUrl(staging, q, language);
+async function compareQuery(q, language, app1, app2) {
+  const app1Url = buildUrl(app1, q, language);
+  const app2Url = buildUrl(app2, q, language);
 
   try {
-    const [prodResp, stagingResp] = await Promise.all([
-      axios.get(prodUrl, { headers: { Accept: 'application/json' } }),
-      axios.get(stagingUrl, { headers: { Accept: 'application/json' } }),
+    const [app1Resp, app2Resp] = await Promise.all([
+      axios.get(app1Url, { headers: { Accept: 'application/json' } }),
+      axios.get(app2Url, { headers: { Accept: 'application/json' } }),
     ]);
 
-    const prodList = asArray(prodResp.data);
-    const stagingList = asArray(stagingResp.data);
+    const app1List = asArray(app1Resp.data);
+    const app2List = asArray(app2Resp.data);
 
-    const { onlyA: onlyProd, onlyB: onlyStaging } = diffLists(prodList, stagingList);
+    const { onlyA: onlyApp1, onlyB: onlyApp2 } = diffLists(app1List, app2List);
     
     return {
       q,
-      prodCount: prodList.length,
-      stagingCount: stagingList.length,
-      onlyProd,
-      onlyStaging,
-      match: onlyProd.length === 0 && onlyStaging.length === 0
+      app1Count: app1List.length,
+      app2Count: app2List.length,
+      onlyApp1,
+      onlyApp2,
+      match: onlyApp1.length === 0 && onlyApp2.length === 0
     };
   } catch (err) {
     return {
@@ -97,7 +97,7 @@ async function compareQuery(q, language, prod, staging) {
 }
 
 async function main() {
-  const { q, file, language, prod, staging } = parseArgs();
+  const { q, file, language, app1, app2 } = parseArgs();
   
   let queries = [];
   if (file) {
@@ -107,20 +107,20 @@ async function main() {
     queries = [q];
   }
 
-  console.log(`Testing ${queries.length} queries against prod and staging (language=${language})\n`);
+  console.log(`Testing ${queries.length} queries against app1 and app2 (language=${language})\n`);
 
   const results = [];
   for (const query of queries) {
     process.stdout.write(`Testing "${query}"... `);
-    const result = await compareQuery(query, language, prod, staging);
+    const result = await compareQuery(query, language, app1, app2);
     results.push(result);
     
     if (result.error) {
       console.log(`ERROR: ${result.error}`);
     } else if (result.match) {
-      console.log(`✓ Match (prod: ${result.prodCount}, staging: ${result.stagingCount})`);
+      console.log(`✓ Match (app1: ${result.app1Count}, app2: ${result.app2Count})`);
     } else {
-      console.log(`✗ Diff (prod: ${result.prodCount}, staging: ${result.stagingCount}, only-prod: ${result.onlyProd.length}, only-staging: ${result.onlyStaging.length})`);
+      console.log(`✗ Diff (app1: ${result.app1Count}, app2: ${result.app2Count}, only-app1: ${result.onlyApp1.length}, only-app2: ${result.onlyApp2.length})`);
     }
   }
 
@@ -137,12 +137,12 @@ async function main() {
       if (result.error) {
         console.log(`\n"${result.q}": ERROR - ${result.error}`);
       } else {
-        console.log(`\n"${result.q}": prod=${result.prodCount}, staging=${result.stagingCount}`);
-        if (result.onlyProd.length > 0) {
-          console.log(`  Only in prod (${result.onlyProd.length}):`, result.onlyProd.map(i => `${i.docYear}/${i.docNumber}`).join(', '));
+        console.log(`\n"${result.q}": app1=${result.app1Count}, app2=${result.app2Count}`);
+        if (result.onlyApp1.length > 0) {
+          console.log(`  Only in app1 (${result.onlyApp1.length}):`, result.onlyApp1.map(i => `${i.docYear}/${i.docNumber}`).join(', '));
         }
-        if (result.onlyStaging.length > 0) {
-          console.log(`  Only in staging (${result.onlyStaging.length}):`, result.onlyStaging.map(i => `${i.docYear}/${i.docNumber}`).join(', '));
+        if (result.onlyApp2.length > 0) {
+          console.log(`  Only in app2 (${result.onlyApp2.length}):`, result.onlyApp2.map(i => `${i.docYear}/${i.docNumber}`).join(', '));
         }
       }
     }
