@@ -15,11 +15,13 @@ interface StatusEntry {
 const AdminPage = ({ language }: AdminPageProps) => {
   const [isUpdating, setIsUpdating] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
+  const [isRebuilding, setIsRebuilding] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [latestStatus, setLatestStatus] = useState<StatusEntry | null>(null)
   const [hasStartedUpdate, setHasStartedUpdate] = useState(false)
   const [startYearInput, setStartYearInput] = useState<string>('')
+  const [hasStartedRebuild, setHasStartedRebuild] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
 
@@ -129,11 +131,41 @@ const AdminPage = ({ language }: AdminPageProps) => {
     }
   }
 
+  const handleRebuildTypesense = async () => {
+    setIsRebuilding(true)
+    setMessage('')
+    setError('')
+    setLatestStatus(null)
+    setHasStartedRebuild(true)
+
+    try {
+      const response = await axios.post('/api/rebuild-typesense')
+      setMessage(language === 'fin'
+        ? 'Typesense-indeksien uudelleenrakentaminen aloitettu!'
+        : 'Typesense-indexombyggnad startad!'
+      )
+      console.log('Rebuild response:', response.data)
+
+      // Start polling for status updates
+      startPolling()
+
+    } catch (err) {
+      console.error('Rebuild failed:', err)
+      setError(language === 'fin'
+        ? 'Indeksien uudelleenrakentaminen epäonnistui. Tarkista konsoli lisätiedoille.'
+        : 'Ombyggnad av index misslyckades. Kontrollera konsolen för mer information.'
+      )
+      setIsRebuilding(false)
+    }
+  }
+
   // Stop polling and updating state when updating becomes false (only if we started an update)
   useEffect(() => {
-    if (latestStatus && hasStartedUpdate && !latestStatus.updating) {
+    if (latestStatus && (hasStartedUpdate || hasStartedRebuild) && !latestStatus.updating) {
       setIsUpdating(false)
+      setIsRebuilding(false)
       setHasStartedUpdate(false)
+      setHasStartedRebuild(false)
       stopPolling()
 
       // Check the action to determine success or failure
@@ -148,15 +180,25 @@ const AdminPage = ({ language }: AdminPageProps) => {
           ? 'Päivitys epäonnistui.'
           : 'Uppdatering misslyckades.'
         )
+      } else if (action === 'typesense_rebuild_complete') {
+        setMessage(language === 'fin'
+          ? 'Indeksien uudelleenrakentaminen valmistui onnistuneesti!'
+          : 'Ombyggnad av indexen slutfördes framgångsrikt!'
+        )
+      } else if (action === 'typesense_rebuild_failed') {
+        setError(language === 'fin'
+          ? 'Indeksien uudelleenrakentaminen epäonnistui.'
+          : 'Ombyggnad av indexen misslyckades.'
+        )
       } else {
         // Generic completion message if no specific action
         setMessage(language === 'fin'
-          ? 'Päivitys valmistui!'
-          : 'Uppdatering slutförd!'
+          ? 'Operaatio valmistui!'
+          : 'Operationen slutfördes!'
         )
       }
     }
-  }, [latestStatus, hasStartedUpdate, language])
+  }, [latestStatus, hasStartedUpdate, hasStartedRebuild, language])
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',
@@ -188,6 +230,18 @@ const AdminPage = ({ language }: AdminPageProps) => {
     borderRadius: '4px',
     cursor: (isUpdating || isClearing) ? 'not-allowed' : 'pointer',
     opacity: (isUpdating || isClearing) ? 0.6 : 1,
+    margin: '0 10px 20px 10px'
+  }
+
+  const rebuildButtonStyle: React.CSSProperties = {
+    backgroundColor: '#FFA500',
+    color: 'white',
+    border: 'none',
+    padding: '12px 24px',
+    fontSize: '16px',
+    borderRadius: '4px',
+    cursor: (isUpdating || isRebuilding) ? 'not-allowed' : 'pointer',
+    opacity: (isUpdating || isRebuilding) ? 0.6 : 1,
     margin: '0 10px 20px 10px'
   }
 
@@ -248,7 +302,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
 
       <div style={{ marginTop: '50px' }}>
         <div style={containerStyle}>
-          <h2>{language === 'fin' ? 'Järjestelmän ylläpito' : 'Systemunderhåll'}</h2>
+          <h2>{language === 'fin' ? 'Järjestelmän jee ylläpito' : 'Systemunderhåll'}</h2>
 
           <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666' }}>
             {language === 'fin'
@@ -288,6 +342,17 @@ const AdminPage = ({ language }: AdminPageProps) => {
               {isClearing
                 ? (language === 'fin' ? 'Tyhjennetään...' : 'Rensar...')
                 : (language === 'fin' ? 'Tyhjennä tilat' : 'Rensa status')
+              }
+            </button>
+
+            <button
+              style={rebuildButtonStyle}
+              onClick={handleRebuildTypesense}
+              disabled={isUpdating || isRebuilding}
+            >
+              {isRebuilding
+                ? (language === 'fin' ? 'Rakennetaan uudelleen...' : 'Bygger om...')
+                : (language === 'fin' ? 'Uudelleen rakenna Typesense' : 'Bygga om Typesense')
               }
             </button>
           </div>

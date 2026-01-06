@@ -10,6 +10,7 @@ import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from
 import { addStatusRow, createTables, dropTables } from './db/db.js';
 import { yearFrom, yearTo } from './util/config.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
+import { deleteCollection, syncStatutes, syncJudgments } from './search.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -161,6 +162,54 @@ app.delete('/api/delete-database', async (req: express.Request, res: express.Res
   } catch (error) {
     console.error('Clear database endpoint error:', error);
     res.status(500).json({ error: 'Failed to clear database' });
+  }
+});
+
+app.post('/api/rebuild-typesense', async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    res.status(200).json({ status: 'started', message: 'Typesense rebuild started in background' });
+    setImmediate(async () => {
+      try {
+        console.info('Typesense rebuild started');
+        await addStatusRow({ action: 'typesense_rebuild_start', startedAt: new Date().toISOString() }, true);
+
+        // Delete and recreate collections for both languages
+        await deleteCollection('statutes', 'fin');
+        await deleteCollection('statutes', 'swe');
+        await deleteCollection('judgments', 'fin');
+        await deleteCollection('judgments', 'swe');
+        console.log('Old Typesense collections deleted');
+
+        // Rebuild indexes from database
+        await syncStatutes('fin');
+        await syncStatutes('swe');
+        await syncJudgments('fin');
+        await syncJudgments('swe');
+        console.log('Typesense collections rebuilt');
+
+        await addStatusRow({ action: 'typesense_rebuild_complete', completedAt: new Date().toISOString() }, false);
+        console.info('Typesense rebuild completed');
+      } catch (error) {
+        console.error('[REBUILD] Typesense rebuild failed with error:', error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        try {
+          await addStatusRow(
+            { 
+              message: 'typesense_rebuild_failed', 
+              error: errorMessage,
+              timestamp: new Date().toISOString()
+            }, 
+            false
+          );
+          console.log('[REBUILD] Wrote error status to database');
+        } catch (dbError) {
+          console.error('[REBUILD] Failed to write error status to database:', dbError);
+        }
+      }
+    });
+  } catch (error) {
+    console.error('[REBUILD] Rebuild endpoint error:', error);
+    res.status(500).json({ error: 'Failed to start typesense rebuild' });
   }
 });
 
