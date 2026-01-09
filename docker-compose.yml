@@ -22,7 +22,7 @@ services:
       context: .
       dockerfile: e2e/Dockerfile.typesense
     environment:
-      TYPESENSE_API_KEY: 'xyz'
+      TYPESENSE_API_KEY: xyz
       TYPESENSE_DATA_DIR: /tmp
     ports:
       - "8108:8108"
