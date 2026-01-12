@@ -14,10 +14,8 @@ docker compose up
 - Kuormitustestaus
   - Lokaalilla skriptillä haku-requesteja stagingiin ja tuotantoon
   - Typesense-vertailu ja kuormitus samalla vaivalla
-- Judgmentit ei toimi?
-  - Ei vielä mitään hajua miksi, ehkä joku typesense-rajapintaongelma
-  - Ongelma lokaali ja tuotantoympäristössä
-  - Kuinka paljon oikeuskäytäntöä tarvitaan? Tarvitaanko esim. jo Tammikuun tenteissä?
+- Judgmentit ei tällä hetkellä fi/sv-jaoteltu
+  - molemmilla kielivalinnoilla molemmat kielet, vain eri järjestyksessä
 - Finlexin rate limitingille rate limiter [DONE]
 - Status-taulukon käyttäytyminen vähän jank
     - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
