@@ -7,9 +7,9 @@ const statuteRouter = express.Router();
 
 statuteRouter.get('/structure/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
 
-  const year = parseInt(request.params.year)
-  const language = request.params.language
-  const number = request.params.number
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
   let content;
   try {
     content = await getStatuteByNumberYear(number, year, language)
@@ -35,9 +35,9 @@ statuteRouter.get('/structure/id/:year/:number/:language', async (request: expre
 })
 
 statuteRouter.get('/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
-  const year = parseInt(request.params.year)
-  const language = request.params.language
-  const number = request.params.number
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
   const content = await getStatuteByNumberYear(number, year, language)
   if (content === null) {
     response.status(404).json({ error: 'Not found' });
@@ -48,9 +48,9 @@ statuteRouter.get('/id/:year/:number/:language', async (request: express.Request
 })
 
 statuteRouter.post('/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
-  const year = parseInt(request.params.year)
-  const language = request.params.language
-  const number = request.params.number
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
   const content = await getStatuteByNumberYear(number, year, language)
 
   response.setHeader('Content-Type', 'application/xml')
@@ -58,10 +58,10 @@ statuteRouter.post('/id/:year/:number/:language', async (request: express.Reques
 })
 
 statuteRouter.get('/:year/:lang', async (request: express.Request, response: express.Response): Promise<void> => {
-  const year = parseInt(request.params.year)
+  const year = parseInt(request.params.year as string)
 
   if (year) {
-    const statutes = await getStatutesByYear(year, request.params.lang)
+    const statutes = await getStatutesByYear(year, request.params.lang as string)
     response.send(statutes)
   } else {
     response.send([])

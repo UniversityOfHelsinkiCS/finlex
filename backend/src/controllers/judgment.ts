@@ -6,10 +6,10 @@ const judgmentRouter = express.Router();
 
 judgmentRouter.get('/structure/id/:year/:number/:language/:level', async (request: express.Request, response: express.Response): Promise<void> => {
 
-  const year = parseInt(request.params.year)
-  const language = request.params.language
-  const number = request.params.number
-  const level = request.params.level
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
+  const level = request.params.level as string
   let content;
   try {
     content = await getJudgmentByNumberYear(number, year, language, level)
@@ -34,10 +34,10 @@ judgmentRouter.get('/structure/id/:year/:number/:language/:level', async (reques
 })
 
 judgmentRouter.get('/id/:year/:number/:language/:level', async (request: express.Request, response: express.Response): Promise<void> => {
-  const year = parseInt(request.params.year)
-  const language = request.params.language
-  const number = request.params.number
-  const level = request.params.level
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
+  const level = request.params.level as string
   const content = await getJudgmentByNumberYear(number, year, language, level)
   if (content === null) {
     response.status(404).json({ error: 'Not found' });

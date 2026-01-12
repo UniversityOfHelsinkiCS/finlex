@@ -3,7 +3,7 @@ import { getImageByName } from '../db/models/image.js';
 const mediaRouter = express.Router();
 
 mediaRouter.get('/:filename', async (request: express.Request, response: express.Response): Promise<void> => {
-  const filename = request.params.filename;
+  const filename = request.params.filename as string;
   try{
     let result;
     try {

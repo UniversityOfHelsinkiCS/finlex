@@ -312,12 +312,63 @@ function parseURLfromJudgmentID(judgmentID: string): string {
   }
 }
 
+function parseFlightStreamContent(html: string): string[] {
+  const scriptRegex = /<script>self\.__next_f\.push\(\[1,(.*?)\]\)<\/script>/gs;
+  const matches = Array.from(html.matchAll(scriptRegex));
+  
+  if (matches.length === 0) {
+    return [];
+  }
+  
+  const combinedPayload = matches.map(m => m[1]).join('\n');
+  
+  const highlightableRegex = /\\"className\\":\\"highlightable\\",\\"children\\":\\"((?:[^"\\]|\\.)*?)\\"[}\]]/g;
+  const contentMatches = Array.from(combinedPayload.matchAll(highlightableRegex));
+  
+  const fragments: string[] = [];
+  for (const match of contentMatches) {
+    let text = match[1]
+      .replace(/\\"/g, '"')
+      .replace(/\\\\/g, '\\')
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '')
+      .trim();
+    
+    if (text && 
+        text.length > 3 &&
+        !text.match(/^[a-f0-9]+:/) &&
+        !text.match(/^\$/) && 
+        !text.includes('$undefined') &&
+        !text.includes('"className"') &&
+        !text.includes('"style"')) {
+      fragments.push(text);
+    }
+  }
+  
+  return fragments;
+}
+
 async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ content: string; is_empty: boolean, keywords: string[] }> {
   const result = await fetchWithBackoff<string>(inputURL, {
     headers: { 'Accept': 'text/html', 'Accept-Encoding': 'gzip' }
   });
   const inputHTML = result.data as string;
   const keywords = parseKeywordsfromHTML(inputHTML, lang);
+  
+  const flightFragments = parseFlightStreamContent(inputHTML);
+  
+  if (flightFragments.length > 0) {
+    const paragraphs = flightFragments
+      .map(text => `<p class="highlightable">${text}</p>`)
+      .join('\n');
+    
+    const content = `<section class="styles_akomaNtoso__parsed">\n${paragraphs}\n</section>`;
+    const is_empty = flightFragments.length === 0 || flightFragments.every(f => f.trim() === '');
+    
+    return { content, is_empty, keywords };
+  }
+  
+  // Fallback to DOM parsing for older pages
   const dom = new JSDOM(inputHTML);
   const doc = dom.window.document;
   const section = doc.querySelector('section[class*="akomaNtoso"]');

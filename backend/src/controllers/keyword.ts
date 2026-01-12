@@ -4,8 +4,8 @@ import { getStatuteKeywords, getStatutesByKeywordID } from '../db/models/keyword
 const keywordRouter = express.Router();
 
 keywordRouter.get('/:language/:keyword_id', async (request: express.Request, response: express.Response): Promise<void> => {
-  const keyword_id = request.params.keyword_id
-  const language = request.params.language
+  const keyword_id = request.params.keyword_id as string
+  const language = request.params.language as string
   let statutes;
   try {
     statutes = await getStatutesByKeywordID(language, keyword_id)
@@ -22,7 +22,7 @@ keywordRouter.get('/:language/:keyword_id', async (request: express.Request, res
 })
 
 keywordRouter.get('/:language', async (request: express.Request, response: express.Response): Promise<void> => {
-  const language = request.params.language
+  const language = request.params.language as string
   let words;
   try {
     words = await getStatuteKeywords(language)
