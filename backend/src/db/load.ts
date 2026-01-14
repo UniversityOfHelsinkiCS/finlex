@@ -312,7 +312,61 @@ function parseURLfromJudgmentID(judgmentID: string): string {
   }
 }
 
-function parseFlightStreamContent(html: string): string[] {
+function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
+  // Simple heuristic language detection for Finnish vs Swedish
+  const lowerText = text.toLowerCase();
+  
+  // Common Finnish words and patterns
+  const finnishIndicators = [
+    'että', 'jossa', 'jonka', 'kanssa', 'mukaan', 'joiden', 'jotka',
+    'vuonna', 'vuoden', 'korkein oikeus', 'hovioikeus', 'käräjäoikeus',
+    'asiassa', 'kanne', 'valitus', 'tuomio', 'päätös', 'perustuslaki',
+    'laki', 'säännös', 'oikeus', 'velvollisuus', 'sopimusrikkomus',
+    'olla', 'ollut', 'ollut', 'ollaan', 'olleet', 'ovat', 'ole', 
+    'tämä', 'näin', 'sekä', 'myös', 'vain', 'kuin', 'ilman',
+    'saada', 'tehdä', 'antaa', 'pitää', 'tulla', 'voida', 'käydä',
+  ];
+  
+  // Common Swedish words and patterns
+  const swedishIndicators = [
+    'att', 'som', 'med', 'enligt', 'från', 'till', 'har', 'eller',
+    'år', 'året', 'högsta domstolen', 'hovrätt', 'tingsrätt',
+    'ärende', 'talan', 'besvär', 'dom', 'beslut', 'grundlag',
+    'lag', 'bestämmelse', 'rätt', 'skyldighet', 'avtalsbrott',
+    'vara', 'varit', 'är', 'var', 'hade', 'skulle', 'kunde',
+    'denna', 'detta', 'den', 'det', 'och', 'även', 'bara',
+    'få', 'göra', 'ge', 'hålla', 'komma', 'kunna', 'skall',
+  ];
+  
+  let finnishScore = 0;
+  let swedishScore = 0;
+  
+  for (const indicator of finnishIndicators) {
+    if (lowerText.includes(indicator)) finnishScore++;
+  }
+  
+  for (const indicator of swedishIndicators) {
+    if (lowerText.includes(indicator)) swedishScore++;
+  }
+  
+  // Character patterns: å is Swedish-specific (strong signal)
+  const aRingCount = (text.match(/å/gi) || []).length;
+  swedishScore += aRingCount * 3;
+  
+  // Finnish tends to have more double vowels
+  const doubleVowels = text.match(/(aa|ee|ii|oo|uu|yy|ää|öö)/gi);
+  if (doubleVowels && doubleVowels.length > 1) finnishScore += 2;
+  
+  // Default to unknown if score is too low to be confident
+  const totalScore = finnishScore + swedishScore;
+  if (totalScore < 2) return 'unknown';
+  
+  if (finnishScore > swedishScore) return 'fin';
+  if (swedishScore > finnishScore) return 'swe';
+  return 'unknown';
+}
+
+function parseFlightStreamContent(html: string, lang?: 'fin' | 'swe'): string[] {
   const scriptRegex = /<script>self\.__next_f\.push\(\[1,(.*?)\]\)<\/script>/gs;
   const matches = Array.from(html.matchAll(scriptRegex));
   
@@ -341,11 +395,34 @@ function parseFlightStreamContent(html: string): string[] {
         !text.includes('$undefined') &&
         !text.includes('"className"') &&
         !text.includes('"style"')) {
+      
+      // If language filtering is requested, detect the language of this paragraph
+      if (lang) {
+        const detectedLang = detectLanguage(text);
+        // Only include paragraphs that definitively match the target language
+        if (detectedLang !== lang) {
+          continue; // Skip paragraphs that are wrong language OR unknown
+        }
+      }
+      
       fragments.push(text);
     }
   }
   
   return fragments;
+}
+
+function extractLangSectionFromDom(inputHTML: string, lang: 'fin' | 'swe'): { content: string; is_empty: boolean } | null {
+  const dom = new JSDOM(inputHTML);
+  const doc = dom.window.document;
+
+  // Finlex uses two-letter language tags in the rendered Akomantoso section
+  const langCode = lang === 'fin' ? 'fi' : 'sv';
+  const section = doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode}"]`) as HTMLElement | null;
+  if (!section) return null;
+
+  const is_empty = (section.textContent ?? '').trim() === '';
+  return { content: section.outerHTML, is_empty };
 }
 
 async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ content: string; is_empty: boolean, keywords: string[] }> {
@@ -354,8 +431,13 @@ async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ cont
   });
   const inputHTML = result.data as string;
   const keywords = parseKeywordsfromHTML(inputHTML, lang);
+  // Prefer DOM extraction scoped by the explicit lang attribute to avoid mixed-language payloads.
+  const domSection = extractLangSectionFromDom(inputHTML, lang === 'fin' ? 'fin' : 'swe');
+  if (domSection) {
+    return { content: domSection.content, is_empty: domSection.is_empty, keywords };
+  }
   
-  const flightFragments = parseFlightStreamContent(inputHTML);
+  const flightFragments = parseFlightStreamContent(inputHTML, lang === 'fin' ? 'fin' : 'swe');
   
   if (flightFragments.length > 0) {
     const paragraphs = flightFragments
