@@ -23,7 +23,6 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
   const [laws, setLaws] = useState<Document[]>(defaultLaws)
   const [errorMessage, setErrorMessage] = useState<string>("")
   let lan: string = language
-  const keybutton = lan === "fin" ? "Asiasanahaku" : "Sök med ämnesord"
 
 
   const topStyle: React.CSSProperties = {
@@ -59,17 +58,6 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
     display: 'none',
     width: '50px',
     height: '50px',
-  }
-
-  const key: React.CSSProperties = {
-    padding: '5px',
-    backgroundColor: ' #F3F8FC',
-    border: '1px solid #0C6FC0',
-    textDecoration: 'none'
-  }
-
-  const keybox: React.CSSProperties = {
-    marginBottom: '25px'
   }
 
   function logError(error: unknown, msg: string) {
@@ -171,8 +159,7 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
             handleSearchInputChange={handleSearchInputChange}
             handleSearchEvent={handleSearchEvent}
           />
-          {apisection === "statute" && <div style={keybox}><a href="/lainsaadanto/asiasanat" style={key}>{keybutton}</a></div>}
-          {apisection !== "statute" && <div style={keybox}></div>}
+          {/* Keyword search button temporarily disabled */}
           <div id="errorblock">
             <Notification message={errorMessage} />
           </div>

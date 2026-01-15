@@ -302,7 +302,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
 
       <div style={{ marginTop: '50px' }}>
         <div style={containerStyle}>
-          <h2>{language === 'fin' ? 'Järjestelmän jee ylläpito' : 'Systemunderhåll'}</h2>
+          <h2>{language === 'fin' ? 'Järjestelmän ylläpito' : 'Systemunderhåll'}</h2>
 
           <p style={{ textAlign: 'center', marginBottom: '30px', color: '#666' }}>
             {language === 'fin'
