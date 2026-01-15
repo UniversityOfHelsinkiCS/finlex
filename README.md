@@ -10,20 +10,22 @@ docker compose up
 ```
 
 ## To Do
-- Kontitus [DONE]
+P1
 - Kuormitustestaus
   - Lokaalilla skriptillä haku-requesteja stagingiin ja tuotantoon
   - Typesense-vertailu ja kuormitus samalla vaivalla
-- Judgmentit ei tällä hetkellä fi/sv-jaoteltu
-  - molemmilla kielivalinnoilla molemmat kielet, vain eri järjestyksessä
-- Finlexin rate limitingille rate limiter [DONE]
-- Status-taulukon käyttäytyminen vähän jank
-    - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
-    - välillä näyttää väärää viestiä kun klikkailee päivitystä
 - Kirjautuminen tms. Admin-näkymään
+
+P2
+- Status-taulukon käyttäytyminen vähän jank
+  - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
+  - välillä näyttää väärää viestiä kun klikkailee päivitystä
 - Parempi päivityslogiikka?
   - Jättää nyt joitain välistä, en tiedä onko 429ien takia, pitäisi parantaa lokitusta/backoffia/retryjä
   - Ylimääräisten poisto
+- Oikeuskäytännön parsiminen fi/sv tällä hetkellä vaikuttaisi toimivan, mutta on vähän epätäsmällinen
+  - käyttää "kielen tunnistamista", joidenkin avainsanojen perusteella
+  - HTML/Flight/React dokumenttien parsiminen täsmällisemmin Finlexin puolelta jokseenkin monimutkaista
 
 ## Tietokannan päivitys/synkronointi
 
