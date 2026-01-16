@@ -7,7 +7,7 @@ import keywordRouter from './controllers/keyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
-import { addStatusRow, createTables, dropTables } from './db/db.js';
+import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables } from './db/db.js';
 import { yearFrom, yearTo } from './util/config.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
 import { deleteCollection, syncStatutes, syncJudgments } from './search.js';
@@ -162,6 +162,26 @@ app.delete('/api/delete-database', async (req: express.Request, res: express.Res
   } catch (error) {
     console.error('Clear database endpoint error:', error);
     res.status(500).json({ error: 'Failed to clear database' });
+  }
+});
+
+// Drop and recreate only judgments-related tables
+app.delete('/api/judgment/drop-table', async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const started = Date.now();
+    await addStatusRow({ action: 'judgments_clear_start', startedAt: new Date().toISOString() }, true);
+
+    await dropJudgmentsTables();
+    console.log('Judgments tables dropped');
+    await createJudgmentsTables();
+    console.log('Judgments schema recreated');
+
+    const ms = Date.now() - started;
+    await addStatusRow({ action: 'judgments_clear_complete', durationMs: ms, completedAt: new Date().toISOString() }, false);
+    res.status(200).json({ message: 'Judgments tables cleared and schema recreated', durationMs: ms });
+  } catch (error) {
+    console.error('Clear judgments tables endpoint error:', error);
+    res.status(500).json({ error: 'Failed to clear judgments tables' });
   }
 });
 

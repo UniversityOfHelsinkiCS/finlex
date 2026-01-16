@@ -343,6 +343,49 @@ async function dropTables(): Promise<void> {
   }
 }
 
+async function dropJudgmentsTables(): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query("DROP TABLE IF EXISTS keywords_judgment");
+    await client.query("DROP TABLE IF EXISTS judgments");
+    client.release();
+  } catch (error) {
+    console.error('Error dropping judgments tables:', error);
+    throw error;
+  }
+}
+
+async function createJudgmentsTables(): Promise<void> {
+  try {
+    const client = await pool.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS judgments (
+        uuid UUID PRIMARY KEY,
+        level TEXT NOT NULL,
+        number TEXT NOT NULL,
+        year INTEGER NOT NULL,
+        language TEXT NOT NULL CHECK (language IN ('fin', 'swe')),
+        content TEXT NOT NULL,
+        is_empty BOOLEAN NOT NULL,
+        CONSTRAINT unique_judgment UNIQUE (level, number, year, language)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS keywords_judgment (
+        id TEXT NOT NULL,
+        keyword TEXT NOT NULL,
+        judgment_uuid UUID references judgments(uuid) ON DELETE CASCADE,
+        language TEXT NOT NULL CHECK (language IN ('fin', 'swe')),
+        CONSTRAINT unique_keyword_judgment UNIQUE (judgment_uuid, keyword, language)
+      )
+    `);
+    client.release();
+  } catch (error) {
+    console.error('Error creating judgments tables:', error);
+    throw error;
+  }
+}
+
 async function query(text: string, params?: unknown[]): Promise<QueryResult> {
   try {
     const client = await pool.connect();
@@ -412,4 +455,4 @@ async function addStatusRow(data: object, updating: boolean = false): Promise<vo
   }
 }
 
-export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow };
+export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables };
