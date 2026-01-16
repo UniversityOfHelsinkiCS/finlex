@@ -27,6 +27,9 @@ P2
   - käyttää "kielen tunnistamista", joidenkin avainsanojen perusteella
   - HTML/Flight/React dokumenttien parsiminen täsmällisemmin Finlexin puolelta jokseenkin monimutkaista
 
+P3
+- Asiasanojen korjaaminen
+
 ## Tietokannan päivitys/synkronointi
 
 ```mermaid
