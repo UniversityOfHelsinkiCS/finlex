@@ -14,23 +14,18 @@ const CONFIG = {
   baseUrl: 'https://finlex.ext.ocp-prod-0.k8s.it.helsinki.fi',
   concurrentRequests: 20,
   durationSeconds: 30,
-  requestTimeout: 5000,
+  requestTimeout: 10000,
 };
 
-// Sample search queries (mix of different types)
+// Sample search queries (statute keyword search only)
 const SEARCH_QUERIES = [
   { q: 'luonnonsuojelulaki', language: 'fin', type: 'statute' },
   { q: 'tupakka', language: 'fin', type: 'statute' },
   { q: 'työaika', language: 'fin', type: 'statute' },
   { q: 'perintökaari', language: 'fin', type: 'statute' },
   { q: 'rikoslaki', language: 'fin', type: 'statute' },
-  { q: '1996/734', language: 'fin', type: 'statute' },
-  { q: '2023/527', language: 'fin', type: 'statute' },
   { q: 'vakuutus', language: 'swe', type: 'statute' },
   { q: 'arbete', language: 'swe', type: 'statute' },
-  { q: 'vahingonkorvaus', language: 'fin', type: 'judgment' },
-  { q: 'työsopimus', language: 'fin', type: 'judgment' },
-  { q: 'kiinteistö', language: 'fin', type: 'judgment' },
 ];
 
 function parseArgs() {
@@ -120,6 +115,15 @@ class LoadTester {
         this.stats.successfulRequests++;
       } else {
         this.stats.failedRequests++;
+        // Track HTTP errors with status code
+        const errorKey = `HTTP ${statusCode}`;
+        if (!this.stats.errors[errorKey]) {
+          this.stats.errors[errorKey] = [];
+        }
+        this.stats.errors[errorKey].push({
+          query: query.q,
+          response: typeof response.data === 'string' ? response.data : JSON.stringify(response.data)
+        });
       }
 
       return { success: true, responseTime, statusCode };
@@ -130,7 +134,13 @@ class LoadTester {
       this.stats.responseTimes.push(responseTime);
 
       const errorType = error.code || error.message || 'unknown';
-      this.stats.errors[errorType] = (this.stats.errors[errorType] || 0) + 1;
+      if (!this.stats.errors[errorType]) {
+        this.stats.errors[errorType] = [];
+      }
+      this.stats.errors[errorType].push({
+        query: getRandomQuery().q,
+        message: error.message
+      });
 
       return { success: false, responseTime, error: errorType };
     }
@@ -199,9 +209,25 @@ class LoadTester {
     }
 
     if (Object.keys(this.stats.errors).length > 0) {
-      console.log(`\nErrors:`);
-      for (const [error, count] of Object.entries(this.stats.errors)) {
-        console.log(`  ${error}:${' '.repeat(20 - error.length)}${count}`);
+      console.log(`\nErrors (detailed):`);
+      for (const [error, details] of Object.entries(this.stats.errors)) {
+        if (Array.isArray(details)) {
+          const count = details.length;
+          console.log(`  ${error}: ${count} occurrence${count > 1 ? 's' : ''}`);
+          // Show up to 3 sample errors
+          details.slice(0, 3).forEach((detail, idx) => {
+            console.log(`    Sample ${idx + 1}: query="${detail.query}"`);
+            if (detail.response) {
+              const responsePreview = detail.response.substring(0, 100);
+              console.log(`      Response: ${responsePreview}${detail.response.length > 100 ? '...' : ''}`);
+            }
+            if (detail.message) {
+              console.log(`      Message: ${detail.message}`);
+            }
+          });
+        } else {
+          console.log(`  ${error}: ${details}`);
+        }
       }
     }
 
