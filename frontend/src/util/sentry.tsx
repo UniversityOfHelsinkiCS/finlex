@@ -19,7 +19,7 @@ export const ErrorButton = () => {
         Sentry.logger.info('User triggered test error', {
           action: 'test_error_button_click',
         });
-        throw new Error('This is your first error!');
+        Sentry.captureException(new Error('This is your first error!'));
       }}
     >
       Break the world
