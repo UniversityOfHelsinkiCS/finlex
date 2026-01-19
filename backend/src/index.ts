@@ -1,6 +1,13 @@
 import app from './app.js'
 import { setPool, createTables, addStatusRow } from './db/db.js'
 import './util/config.js'
+import * as Sentry from '@sentry/node'
+Sentry.init({
+  dsn: "https://9573bbcddd296e79ec5ee2cde228c5ef@toska.it.helsinki.fi/24",
+  // Setting this option to true will send default PII data to Sentry.
+  // For example, automatic IP address collection on events
+  sendDefaultPii: true,
+});
 
 setPool(process.env.PG_URI ?? '')
 
@@ -10,6 +17,14 @@ async function startServer() {
   try {
     await createTables()
     console.log('[STARTUP] Tables created/verified')
+
+    try{
+      Sentry.captureException(new Error("debugerror remove me"))
+    }
+    catch(error){
+      
+    }
+
 
     await addStatusRow(
       {
