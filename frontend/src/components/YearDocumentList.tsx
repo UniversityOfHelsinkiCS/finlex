@@ -1,7 +1,7 @@
 import axios from "axios"
 import { useState, useEffect } from "react"
 import { useParams } from "react-router-dom"
-
+import * as Sentry from '@sentry/react'
 const YearDocumentList = () => {
   const { year } = useParams<{ year: string }>()
 
@@ -17,7 +17,7 @@ const YearDocumentList = () => {
         setDocuments(response.data)
       } catch (error) {
         console.error('Error fetching documents:', error)
-        throw error
+        Sentry.captureException(error)
       }
     }
 
