@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 
+import { ErrorButton } from '../util/sentry.tsx'
 interface AdminPageProps {
   language: string
 }
@@ -322,6 +323,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
                 style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '140px' }}
               />
             </div>
+
+          {/* sentry error button */}
+          <ErrorButton/>
 
             <button
               style={buttonStyle}
