@@ -1,6 +1,6 @@
 import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
-import { initSentry } from './util/sentry.ts'
+import { initSentry } from './util/sentry.tsx'
 
 
 initSentry()
