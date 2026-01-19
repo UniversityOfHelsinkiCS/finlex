@@ -17,6 +17,7 @@ const YearDocumentList = () => {
         setDocuments(response.data)
       } catch (error) {
         console.error('Error fetching documents:', error)
+        throw error
       }
     }
 
