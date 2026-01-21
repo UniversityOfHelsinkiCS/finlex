@@ -11,10 +11,8 @@ docker compose up
 
 ## To Do
 P1
-- Kuormitustestaus
-  - Lokaalilla skriptillä haku-requesteja stagingiin ja tuotantoon
-  - Typesense-vertailu ja kuormitus samalla vaivalla
-- Kirjautuminen tms. Admin-näkymään
+- Sentryn frontend-virheiden capturaaminen
+- Kirjautuminen Admin-näkymään
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
