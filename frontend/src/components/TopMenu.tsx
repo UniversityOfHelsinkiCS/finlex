@@ -17,11 +17,29 @@ const TopMenu = ({language, handleSelect}: TopMenuProps) => {
 
   const menuDivStle: React.CSSProperties = {
     display: 'flex',
-    justifyContent: 'space-evenly',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: '0px',
-    width: '500px',
+    width: '100%',
     border: '0px solid pink',
     paddingBottom: '0px',
+    position: 'relative',
+  }
+
+  const menuCenterStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '30px',
+  }
+
+  const menuRightStyle: React.CSSProperties = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    gap: '10px',
+    marginRight: '20px',
+    position: 'absolute',
+    right: 0,
   }
 
   const secdivStyle: React.CSSProperties = {
@@ -39,18 +57,46 @@ const TopMenu = ({language, handleSelect}: TopMenuProps) => {
     paddingTop: '14px',
   }
 
+  const adminButtonStyle: React.CSSProperties = {
+    color: '#fefefe',
+    textDecoration: 'none',
+    border: '1px solid #fefefe',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    backgroundColor: 'transparent',
+  }
+
+  const adminButtonHoverStyle: React.CSSProperties = {
+    ...adminButtonStyle,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  }
+
   const path: string = window.location.pathname
   const lawpage: boolean = path.startsWith("/lainsaadanto")
 
   return (
     <div id="topmenudiv" style={menuDivStle} >
-      <div id="lainsdiv" style={lawpage ? secdivActiveStyle :  secdivStyle}>
-        <a style={lawpage ? menyActiveStyle :  menyStyle} href="/lainsaadanto/">{(language === "fin") ? "Lainsäädäntö" : "Lagstiftning"}</a>
+      <div style={menuCenterStyle}>
+        <div id="lainsdiv" style={lawpage ? secdivActiveStyle :  secdivStyle}>
+          <a style={lawpage ? menyActiveStyle :  menyStyle} href="/lainsaadanto/">{(language === "fin") ? "Lainsäädäntö" : "Lagstiftning"}</a>
+        </div>
+        <div id="oikkaytdiv" style={!lawpage ? secdivActiveStyle :  secdivStyle}>
+          <a style={!lawpage ? menyActiveStyle :  menyStyle} href="/oikeuskaytanto/">{(language === "fin") ? "Oikeuskäytäntö" : "Rättspraxis"}</a>
+        </div>
       </div>
-      <div id="oikkaytdiv" style={!lawpage ? secdivActiveStyle :  secdivStyle}>
-        <a style={!lawpage ? menyActiveStyle :  menyStyle} href="/oikeuskaytanto/">{(language === "fin") ? "Oikeuskäytäntö" : "Rättspraxis"}</a>
+      <div style={menuRightStyle}>
+        <LanguageSelection language={language} handleSelect={handleSelect}/>
+        <a 
+          href="/admin" 
+          style={adminButtonStyle}
+          onMouseEnter={(e) => Object.assign(e.currentTarget.style, adminButtonHoverStyle)}
+          onMouseLeave={(e) => Object.assign(e.currentTarget.style, adminButtonStyle)}
+        >
+          {(language === "fin") ? "Ylläpito" : "Admin"}
+        </a>
       </div>
-      <LanguageSelection language={language} handleSelect={handleSelect}/>
     </div>
   )
 }

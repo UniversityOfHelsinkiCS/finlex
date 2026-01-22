@@ -282,6 +282,23 @@ const AdminPage = ({ language }: AdminPageProps) => {
     textAlign: 'left'
   }
 
+  const backButtonStyle: React.CSSProperties = {
+    color: '#fefefe',
+    textDecoration: 'none',
+    border: '1px solid #fefefe',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    backgroundColor: 'transparent',
+    marginRight: '20px',
+  }
+
+  const backButtonHoverStyle: React.CSSProperties = {
+    ...backButtonStyle,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  }
+
   return (
     <div>
       <div style={{
@@ -296,9 +313,23 @@ const AdminPage = ({ language }: AdminPageProps) => {
         justifyContent: 'center',
         color: 'white',
         fontSize: '18px',
-        fontWeight: 'bold'
+        fontWeight: 'bold',
+        boxSizing: 'border-box',
       }}>
-        {language === 'fin' ? 'Ylläpito' : 'Administration'}
+        <div>{language === 'fin' ? 'Ylläpito' : 'Administration'}</div>
+        <div style={{
+          position: 'absolute',
+          right: '20px',
+        }}>
+          <a 
+            href="/lainsaadanto/" 
+            style={backButtonStyle}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, backButtonHoverStyle)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, backButtonStyle)}
+          >
+            {(language === "fin") ? "Lainsäädäntö" : "Lagstiftning"}
+          </a>
+        </div>
       </div>
 
       <div style={{ marginTop: '50px' }}>
