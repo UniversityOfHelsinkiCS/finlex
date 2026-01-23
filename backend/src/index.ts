@@ -18,13 +18,6 @@ async function startServer() {
     await createTables()
     console.log('[STARTUP] Tables created/verified')
 
-    try{
-      Sentry.captureException(new Error("debugerror remove me"))
-    }
-    catch(error){
-      
-    }
-
 
     await addStatusRow(
       {

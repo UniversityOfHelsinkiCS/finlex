@@ -1,4 +1,5 @@
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import * as config from '../util/config.js';
 import { getJudgmentByNumberYear, getJudgmentsByYear, searchJudgmentsByKeywordAndLanguage } from '../db/models/judgment.js';
 import { parseHtmlHeadings } from '../util/parse.js';
@@ -27,7 +28,8 @@ judgmentRouter.get('/structure/id/:year/:number/:language/:level', async (reques
     const structure = parseHtmlHeadings(content)
     response.json(structure)
   } catch (error) {
-    console.error("Error parsing XML content", error);
+    console.error("Error parsing HTML content", error);
+    Sentry.captureException(error);
     response.status(500).json({ error: 'Internal server error' });
     return;
   }
@@ -73,7 +75,9 @@ judgmentRouter.get('/search', async (request: express.Request, response: express
     let result;
     try {
       result = await getJudgmentByNumberYear(docNumber, parseInt(docYear), language, docLevel.toLowerCase());
-    } catch {
+    } catch (error) {
+      console.error("Error fetching judgment by number and year", error);
+      Sentry.captureException(error);
       response.status(500).json({ error: 'Internal server error' });
       return;
     }
@@ -96,7 +100,9 @@ judgmentRouter.get('/search', async (request: express.Request, response: express
     let results;
     try {
       results = await getJudgmentsByYear(year, language, level);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching judgments by year", error);
+      Sentry.captureException(error);
       response.status(500).json({ error: 'Internal server error' });
       return;
     }
@@ -113,8 +119,9 @@ judgmentRouter.get('/search', async (request: express.Request, response: express
   try {
     results = await searchJudgmentsByKeywordAndLanguage(query, language, level);
   } catch (error) {
+    console.error("Error during judgment search:", error);
+    Sentry.captureException(error);
     response.status(500).json({ error: 'Internal server error' });
-    console.error("Error during search:", error);
     return;
   }
   if (results.length > 0) {

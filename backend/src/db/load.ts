@@ -1,5 +1,6 @@
 import { parseStringPromise } from 'xml2js';
 import axios, { AxiosResponse } from 'axios'
+import * as Sentry from '@sentry/node';
 import { Statute, StatuteKey, StatuteKeyWord } from '../types/statute.js';
 import { Judgment, JudgmentKey, JudgmentKeyWord } from '../types/judgment.js';
 import { StatuteVersionResponse } from '../types/versions.js';
@@ -56,10 +57,14 @@ async function fetchWithBackoff<T = unknown>(url: string, config: any, opts?: { 
       const resp = await finlexLimiter.schedule(() => axios.get<T>(url, config));
       return resp;
     } catch (error) {
-      if (!axios.isAxiosError(error)) throw error;
+      if (!axios.isAxiosError(error)) {
+        Sentry.captureException(error);
+        throw error;
+      }
       const status = error.response?.status ?? 0;
       attempt += 1;
       if (attempt > maxRetries || !retryOn(status)) {
+        Sentry.captureException(error);
         throw error;
       }
       // Respect Retry-After header when present
@@ -95,6 +100,7 @@ function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docL
     return { docYear, docNumber, docLanguage, docVersion };
   } catch (error) {
     console.error("Failed to parse URL:", error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -687,6 +693,7 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
       } else {
         console.error(`Unexpected error while fetching statute versions: ${error}`);
       }
+      Sentry.captureException(error);
     }
   }
 
@@ -723,6 +730,7 @@ async function listJudgmentNumbersByYear(year: number, language: string, level: 
       return [];
     } else {
       console.error(`Failed to fetch judgment numbers for year ${year}, language ${language}, level ${level}:`, error);
+      Sentry.captureException(error);
       return [];
     }
   }

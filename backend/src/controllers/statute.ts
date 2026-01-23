@@ -1,4 +1,5 @@
 import express from 'express';
+import * as Sentry from '@sentry/node';
 import { parseStringPromise } from 'xml2js';
 import { parseXmlHeadings } from '../util/parse.js';
 import * as config from '../util/config.js';
@@ -87,7 +88,12 @@ statuteRouter.get('/search', async (request: express.Request, response: express.
     let results
     try {
       results = await getStatuteByNumberYear(docNumber, parseInt(docYear), language)
-    } catch {response.status(500).json({ error: 'Internal server error' }); return; }
+    } catch (error) {
+      console.error("Error fetching statute by number and year", error);
+      Sentry.captureException(error);
+      response.status(500).json({ error: 'Internal server error' });
+      return;
+    }
 
     if (results) {
       response.json({type: 'redirect', content: {
@@ -107,7 +113,9 @@ statuteRouter.get('/search', async (request: express.Request, response: express.
     let results;
     try {
       results = await getStatutesByYear(year, language);
-    } catch {
+    } catch (error) {
+      console.error("Error fetching statutes by year", error);
+      Sentry.captureException(error);
       response.status(500).json({ error: 'Internal server error' });
       return;
     }
@@ -123,9 +131,10 @@ statuteRouter.get('/search', async (request: express.Request, response: express.
   let results;
   try {
     results = await searchStatutesByKeywordAndLanguage(query, language);
-  } catch (error){
+  } catch (error) {
+    console.error("Error during statute search:", error);
+    Sentry.captureException(error);
     response.status(500).json({ error: 'Internal server error' });
-    console.error("Error during search:", error);
     return;
   }
   if (results.length > 0) {

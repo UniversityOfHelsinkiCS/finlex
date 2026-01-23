@@ -1,5 +1,6 @@
 import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows } from "./db/db.js";
 import { stopFinlexLimiterLogging } from "./db/load.js";
+import * as Sentry from '@sentry/node';
 import './util/config.js';
 import { exit } from 'process';
 import { syncStatutes, deleteCollection, syncJudgments } from "./search.js";
@@ -35,6 +36,7 @@ async function initDatabase(startYear?: number) {
 
   } catch (error) {
     console.error('[DB] Error initializing database:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -87,6 +89,7 @@ export const runSetup = async (startYear?: number) => {
     console.log(`[SETUP] Database setup completed in ${minutes}m ${seconds}s (${totalDuration}ms)`);
   } catch (error) {
     const errorDuration = Date.now() - setupStartTime;
+    Sentry.captureException(error);
     console.error(`[SETUP] Setup failed after ${errorDuration}ms:`, error);
     throw error;
   }

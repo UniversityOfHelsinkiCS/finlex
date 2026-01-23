@@ -1,6 +1,7 @@
 import { Heading } from "./types/structure.js";
 import { StatuteSearchResult } from "./types/statute.js";
 import { JudgmentSearchResult } from "./types/judgment.js";
+import * as Sentry from '@sentry/node';
 import Typesense from "typesense";
 import { Errors } from "typesense";
 import { CollectionCreateSchema } from "typesense/lib/Typesense/Collections.js";
@@ -121,6 +122,8 @@ async function upsertWithRetry(collectionName: string, document: Record<string, 
         console.warn(`Typesense lagging behind (503), retrying in ${delay}ms... (attempt ${retries})`);
         await new Promise(res => setTimeout(res, delay));
       } else {
+        console.error('Error upserting document to Typesense:', error);
+        Sentry.captureException(error);
         throw error;
       }
     }
@@ -162,6 +165,8 @@ export async function syncStatutes(lang: string) {
     console.log(`Created collection ${collectionName}`);
   } catch (err) {
     if (!(err instanceof Errors.ObjectAlreadyExists)) {
+      console.error(`Error creating collection ${collectionName}:`, err);
+      Sentry.captureException(err);
       throw err;
     }
     console.log(`Collection ${collectionName} already exists`);
@@ -218,10 +223,11 @@ export async function syncStatutes(lang: string) {
           headings: normalizeText(headings, lang),
           paragraphs: normalizeText(paragraphs, lang),
         });
-      } catch (error){
-        console.log('--- errored -->',row.id)
-        console.log(row)
-        console.log(error)
+      } catch (error) {
+        console.log('--- errored -->', row.id);
+        console.log(row);
+        console.log(error);
+        Sentry.captureException(error);
       }
 
     }
@@ -260,6 +266,8 @@ export async function syncJudgments(lang: string) {
     console.log(`Created collection ${collectionName}`);
   } catch (err) {
     if (!(err instanceof Errors.ObjectAlreadyExists)) {
+      console.error(`Error creating collection ${collectionName}:`, err);
+      Sentry.captureException(err);
       throw err;
     }
     console.log(`Collection ${collectionName} already exists`);
@@ -320,6 +328,8 @@ export async function deleteCollection(name: string, lang: string) {
     console.log(`Deleted collection ${collectionName}`);
   } catch (err) {
     if (!(err instanceof Errors.ObjectNotFound)) {
+      console.error(`Error deleting collection ${collectionName}:`, err);
+      Sentry.captureException(err);
       throw err;
     }
     console.log(`Collection ${collectionName} does not exist`);

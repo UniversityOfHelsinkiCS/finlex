@@ -1,4 +1,4 @@
-
+import * as Sentry from '@sentry/node';
 import { Pool, QueryResult } from 'pg';
 import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment } from './load.js';
 import { getStatuteCountByYear, getStatutesByYear } from './models/statute.js';
@@ -43,6 +43,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
     console.log("Database is filled")
   } catch (error) {
     console.error('Error filling database:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -80,6 +81,7 @@ async function dbIsReady(): Promise<boolean> {
 
   } catch (error) {
     console.error('Error checking database readiness:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -237,6 +239,7 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
 
   } catch (error) {
     console.error('Error checking if database is up to date:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -321,6 +324,7 @@ async function createTables(): Promise<void> {
   }
   catch (error) {
     console.error('Error creating tables:', error);
+    Sentry.captureException(error);
     throw error;
   }
   console.log('Tables created successfully');
@@ -339,6 +343,7 @@ async function dropTables(): Promise<void> {
     client.release();
   } catch (error) {
     console.error('Error dropping tables:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -351,6 +356,7 @@ async function dropJudgmentsTables(): Promise<void> {
     client.release();
   } catch (error) {
     console.error('Error dropping judgments tables:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -382,6 +388,7 @@ async function createJudgmentsTables(): Promise<void> {
     client.release();
   } catch (error) {
     console.error('Error creating judgments tables:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -394,6 +401,7 @@ async function query(text: string, params?: unknown[]): Promise<QueryResult> {
     return result;
   } catch (error) {
     console.error(`Error executing query '${text}': '${error}'`);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -405,6 +413,7 @@ async function clearStatusRows(): Promise<void> {
     client.release();
   } catch (error) {
     console.error('Error clearing status rows:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -414,6 +423,7 @@ async function closePool() {
     await pool.end();
   } catch (error) {
     console.error('Error closing database connection:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }
@@ -451,6 +461,7 @@ async function addStatusRow(data: object, updating: boolean = false): Promise<vo
     client.release();
   } catch (error) {
     console.error('Error adding status row:', error);
+    Sentry.captureException(error);
     throw error;
   }
 }

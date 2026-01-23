@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import * as Sentry from '@sentry/node';
 import mediaRouter from './controllers/media.js';
 import statuteRouter from './controllers/statute.js';
 import judgmentRouter from './controllers/judgment.js';
@@ -61,6 +62,7 @@ app.get('/api/config', (req, res) => {
     res.status(200).json({ startYear: yearFrom(), endYear: yearTo() });
   } catch (error) {
     console.error('Config endpoint error:', error);
+    Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to get config' });
   }
 })
@@ -77,6 +79,7 @@ app.post('/api/setup', async (req: express.Request, res: express.Response): Prom
         console.info('Database setup completed');
       } catch (error) {
         console.error('[SETUP] Setup failed with error:', error);
+        Sentry.captureException(error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         try {
           await addStatusRow(
@@ -90,10 +93,12 @@ app.post('/api/setup', async (req: express.Request, res: express.Response): Prom
           console.log('[SETUP] Wrote error status to database');
         } catch (dbError) {
           console.error('[SETUP] Failed to write error status to database:', dbError);
+          Sentry.captureException(dbError);
         }
       }
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.error('[SETUP] Setup endpoint error:', error);
     res.status(500).json({ error: 'Failed to start setup' });
   }
@@ -105,6 +110,7 @@ app.get('/api/status', async (req: express.Request, res: express.Response): Prom
     const entries = await getAllStatusEntries(Math.min(limit, 100)); // Cap at 100
     res.status(200).json(entries);
   } catch (error) {
+    Sentry.captureException(error);
     console.error('Status endpoint error:', error);
     res.status(500).json({ error: 'Failed to get status entries' });
   }
@@ -119,6 +125,7 @@ app.get('/api/status/latest', async (req: express.Request, res: express.Response
       res.status(404).json({ message: 'No status entries found' });
     }
   } catch (error) {
+    Sentry.captureException(error);
     console.error('Latest status endpoint error:', error);
     res.status(500).json({ error: 'Failed to get latest status entry' });
   }
@@ -139,6 +146,7 @@ app.delete('/api/status', async (req: express.Request, res: express.Response): P
       deletedCount
     });
   } catch (error) {
+    Sentry.captureException(error);
     console.error('Clear status endpoint error:', error);
     res.status(500).json({ error: 'Failed to clear status entries' });
   }
@@ -161,6 +169,7 @@ app.delete('/api/delete-database', async (req: express.Request, res: express.Res
     res.status(200).json({ message: 'Database cleared and schema recreated', deletedStatusEntries: deletedCount, durationMs: ms });
   } catch (error) {
     console.error('Clear database endpoint error:', error);
+    Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to clear database' });
   }
 });
@@ -181,6 +190,7 @@ app.delete('/api/judgment/drop-table', async (req: express.Request, res: express
     res.status(200).json({ message: 'Judgments tables cleared and schema recreated', durationMs: ms });
   } catch (error) {
     console.error('Clear judgments tables endpoint error:', error);
+    Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to clear judgments tables' });
   }
 });
@@ -211,6 +221,7 @@ app.post('/api/rebuild-typesense', async (req: express.Request, res: express.Res
         console.info('Typesense rebuild completed');
       } catch (error) {
         console.error('[REBUILD] Typesense rebuild failed with error:', error);
+        Sentry.captureException(error);
         const errorMessage = error instanceof Error ? error.message : String(error);
         try {
           await addStatusRow(
@@ -224,11 +235,13 @@ app.post('/api/rebuild-typesense', async (req: express.Request, res: express.Res
           console.log('[REBUILD] Wrote error status to database');
         } catch (dbError) {
           console.error('[REBUILD] Failed to write error status to database:', dbError);
+          Sentry.captureException(dbError);
         }
       }
     });
   } catch (error) {
     console.error('[REBUILD] Rebuild endpoint error:', error);
+    Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to start typesense rebuild' });
   }
 });
