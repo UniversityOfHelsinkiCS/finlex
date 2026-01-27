@@ -1,6 +1,7 @@
 import express from 'express';
 import path from 'path';
 import * as Sentry from '@sentry/node';
+import jwt from 'jsonwebtoken';
 import mediaRouter from './controllers/media.js';
 import statuteRouter from './controllers/statute.js';
 import judgmentRouter from './controllers/judgment.js';
@@ -41,6 +42,49 @@ console.error = (...args: unknown[]) => {
 
 
 app.use(express.json());
+
+// Admin authentication
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+const verifyAdminToken = (req: express.Request, res: express.Response, next: express.NextFunction): void => {
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    jwt.verify(token, JWT_SECRET);
+    next();
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired token' });
+  }
+};
+
+app.post('/api/admin/login', (req: express.Request, res: express.Response): void => {
+  const { password } = req.body;
+  
+  if (!password) {
+    res.status(400).json({ error: 'Password required' });
+    return;
+  }
+
+  if (password !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: 'Invalid password' });
+    return;
+  }
+
+  const token = jwt.sign({ admin: true }, JWT_SECRET, { expiresIn: '24h' });
+  res.json({ token });
+});
+
+app.get('/api/admin/verify', verifyAdminToken, (req: express.Request, res: express.Response): void => {
+  res.json({ authenticated: true });
+});
+
 app.get('/api/check-db-status', async (req: express.Request, res: express.Response): Promise<void> => {
   const latestStatus = await getLatestStatusEntry();
   if (!latestStatus || !latestStatus.updating) {
@@ -67,7 +111,7 @@ app.get('/api/config', (req, res) => {
   }
 })
 
-app.post('/api/setup', async (req: express.Request, res: express.Response): Promise<void> => {
+app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     res.status(200).json({ status: 'started', message: 'Database update started in background' });
     setImmediate(async () => {
@@ -104,7 +148,7 @@ app.post('/api/setup', async (req: express.Request, res: express.Response): Prom
   }
 });
 
-app.get('/api/status', async (req: express.Request, res: express.Response): Promise<void> => {
+app.get('/api/status', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
     const entries = await getAllStatusEntries(Math.min(limit, 100)); // Cap at 100
@@ -116,7 +160,7 @@ app.get('/api/status', async (req: express.Request, res: express.Response): Prom
   }
 });
 
-app.get('/api/status/latest', async (req: express.Request, res: express.Response): Promise<void> => {
+app.get('/api/status/latest', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const entry = await getLatestStatusEntry();
     if (entry) {
@@ -138,7 +182,7 @@ app.get('/api/logs', (req: express.Request, res: express.Response): void => {
   res.status(200).json(logs);
 });
 
-app.delete('/api/status', async (req: express.Request, res: express.Response): Promise<void> => {
+app.delete('/api/status', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const deletedCount = await clearAllStatusEntries();
     res.status(200).json({
@@ -153,7 +197,7 @@ app.delete('/api/status', async (req: express.Request, res: express.Response): P
 });
 
 
-app.delete('/api/delete-database', async (req: express.Request, res: express.Response): Promise<void> => {
+app.delete('/api/delete-database', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const started = Date.now();
     await addStatusRow({ action: 'db_clear_start', startedAt: new Date().toISOString() }, true);
@@ -175,7 +219,7 @@ app.delete('/api/delete-database', async (req: express.Request, res: express.Res
 });
 
 // Drop and recreate only judgments-related tables
-app.delete('/api/judgment/drop-table', async (req: express.Request, res: express.Response): Promise<void> => {
+app.delete('/api/judgment/drop-table', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const started = Date.now();
     await addStatusRow({ action: 'judgments_clear_start', startedAt: new Date().toISOString() }, true);
@@ -195,7 +239,7 @@ app.delete('/api/judgment/drop-table', async (req: express.Request, res: express
   }
 });
 
-app.post('/api/rebuild-typesense', async (req: express.Request, res: express.Response): Promise<void> => {
+app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     res.status(200).json({ status: 'started', message: 'Typesense rebuild started in background' });
     setImmediate(async () => {

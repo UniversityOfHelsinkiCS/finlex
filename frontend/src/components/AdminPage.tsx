@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import AdminLogin from './AdminLogin'
 
 interface AdminPageProps {
   language: string
@@ -13,6 +14,7 @@ interface StatusEntry {
 }
 
 const AdminPage = ({ language }: AdminPageProps) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
   const [isClearing, setIsClearing] = useState(false)
   const [isRebuilding, setIsRebuilding] = useState(false)
@@ -25,9 +27,26 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
 
+  // Check if user is already authenticated
+  useEffect(() => {
+    const token = localStorage.getItem('adminToken')
+    if (token) {
+      // Verify token with backend
+      axios.get('/api/admin/verify', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).catch(() => {
+        localStorage.removeItem('adminToken')
+      })
+      setIsAuthenticated(!!token)
+    }
+  }, [])
+
   const pollLatestStatus = async () => {
     try {
-      const response = await axios.get('/api/status/latest')
+      const token = localStorage.getItem('adminToken')
+      const response = await axios.get('/api/status/latest', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
       console.log('Polled status:', response.data)
       setLatestStatus(response.data)
     } catch (err) {
@@ -60,7 +79,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
     let mounted = true
     const fetchConfig = async () => {
       try {
-        const resp = await axios.get('/api/config')
+        const token = localStorage.getItem('adminToken')
+        const resp = await axios.get('/api/config', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
         const sy = resp.data?.startYear
         if (mounted && typeof sy === 'number') {
           setDefaultStartYear(sy)
@@ -70,9 +92,11 @@ const AdminPage = ({ language }: AdminPageProps) => {
         // ignore
       }
     }
-    fetchConfig()
+    if (isAuthenticated) {
+      fetchConfig()
+    }
     return () => { mounted = false }
-  }, [])
+  }, [isAuthenticated])
 
   const handleUpdate = async () => {
     setIsUpdating(true)
@@ -87,7 +111,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
         const yearNum = parseInt(startYearInput, 10)
         if (!Number.isNaN(yearNum)) payload.startYear = yearNum
       }
-      const response = await axios.post('/api/setup', payload)
+      const token = localStorage.getItem('adminToken')
+      const response = await axios.post('/api/setup', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
       setMessage(language === 'fin'
         ? 'Päivitys aloitettu!'
         : 'Uppdatering startad!'
@@ -113,7 +140,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
     setError('')
 
     try {
-      const response = await axios.delete('/api/status')
+      const token = localStorage.getItem('adminToken')
+      const response = await axios.delete('/api/status', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
       setMessage(language === 'fin'
         ? `Tilan viestit tyhjennetty! Poistettu ${response.data.deletedCount} viestiä.`
         : `Statusmeddelanden rensade! Raderade ${response.data.deletedCount} meddelanden.`
@@ -139,7 +169,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
     setHasStartedRebuild(true)
 
     try {
-      const response = await axios.post('/api/rebuild-typesense')
+      const token = localStorage.getItem('adminToken')
+      const response = await axios.post('/api/rebuild-typesense', {}, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
       setMessage(language === 'fin'
         ? 'Typesense-indeksien uudelleenrakentaminen aloitettu!'
         : 'Typesense-indexombyggnad startad!'
@@ -284,7 +317,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const backButtonStyle: React.CSSProperties = {
     color: '#fefefe',
     textDecoration: 'none',
-    border: '1px solid #fefefe',
+    border: 'none',
     padding: '6px 12px',
     borderRadius: '4px',
     cursor: 'pointer',
@@ -296,6 +329,15 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const backButtonHoverStyle: React.CSSProperties = {
     ...backButtonStyle,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem('adminToken')
+    setIsAuthenticated(false)
+  }
+
+  if (!isAuthenticated) {
+    return <AdminLogin language={language} onLoginSuccess={() => setIsAuthenticated(true)} />
   }
 
   return (
@@ -319,6 +361,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
         <div style={{
           position: 'absolute',
           right: '20px',
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center'
         }}>
           <a 
             href="/lainsaadanto/" 
@@ -328,6 +373,19 @@ const AdminPage = ({ language }: AdminPageProps) => {
           >
             {(language === "fin") ? "Lainsäädäntö" : "Lagstiftning"}
           </a>
+          <button
+            onClick={handleLogout}
+            style={{
+              ...backButtonStyle,
+              marginRight: '0',
+              background: 'transparent',
+              padding: '6px 12px'
+            }}
+            onMouseEnter={(e) => Object.assign(e.currentTarget.style, backButtonHoverStyle)}
+            onMouseLeave={(e) => Object.assign(e.currentTarget.style, backButtonStyle)}
+          >
+            {language === "fin" ? "Kirjaudu ulos" : "Logga ut"}
+          </button>
         </div>
       </div>
 
