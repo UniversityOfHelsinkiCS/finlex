@@ -11,8 +11,6 @@ docker compose up
 
 ## To Do
 P1
-- Sentryn frontend-virheiden capturaaminen
-- Kirjautuminen Admin-näkymään
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
