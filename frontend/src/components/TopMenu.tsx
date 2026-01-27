@@ -60,7 +60,7 @@ const TopMenu = ({language, handleSelect}: TopMenuProps) => {
   const adminButtonStyle: React.CSSProperties = {
     color: '#fefefe',
     textDecoration: 'none',
-    border: '1px solid #fefefe',
+    border: 'none',
     padding: '6px 12px',
     borderRadius: '4px',
     cursor: 'pointer',
