@@ -37,6 +37,8 @@ services:
       TYPESENSE_API_KEY: xyz
       START_YEAR: 2024
       NODE_ENV: production
+      ADMIN_PASSWORD: finlex
+      JWT_SECRET: test-key
     ports:
       - "3001:3001"
     depends_on:
