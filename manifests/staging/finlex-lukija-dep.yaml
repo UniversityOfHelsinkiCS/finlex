@@ -39,6 +39,16 @@ spec:
                 configMapKeyRef:
                   name: finlex-lukija-config
                   key: TYPESENSE_API_KEY
+            - name: ADMIN_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: finlex-lukija-config
+                  key: ADMIN_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                configMapKeyRef:
+                  name: finlex-lukija-config
+                  key: JWT_SECRET
           resources:
             limits:
               memory: "3800Mi"
