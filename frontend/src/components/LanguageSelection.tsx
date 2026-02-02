@@ -5,7 +5,7 @@ const LanguageSelection = ({language, handleSelect} : Lang) => {
   const menuStyle = {
     border: '0px solid red',
     marginRight: '0px',
-    marginTop: '14px',
+    marginTop: '0px',
   }
 
 
