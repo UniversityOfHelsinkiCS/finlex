@@ -109,15 +109,9 @@ function buildFinlexUrl(statute: StatuteKey): { uri: string, uriOld: string }  {
   const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act'
 
   return {
-    uri: `${baseUrl}/statute/${statute.year}/${statute.number}/${statute.language}@`,
-    uriOld: `${baseUrl}/statute/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
+    uri: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@`,
+    uriOld: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
   };
-  /*
-  return {
-    uriOld: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`,
-    uri: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
-  };
-  */
 }
 
 function parseJudgmentUrl(url: string): JudgmentKey {
