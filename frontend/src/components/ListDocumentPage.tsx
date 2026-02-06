@@ -60,6 +60,15 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
     height: '50px',
   }
 
+  const keywordLinkStyle: React.CSSProperties = {
+    display: 'inline-block',
+    marginTop: '6px',
+    marginBottom: '10px',
+    color: '#0C6FC0',
+    textDecoration: 'none',
+    fontSize: '14px'
+  }
+
   function logError(error: unknown, msg: string) {
     console.error("Error:", error);
     localStorage.removeItem(`results_${apisection}`)
@@ -159,7 +168,11 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
             handleSearchInputChange={handleSearchInputChange}
             handleSearchEvent={handleSearchEvent}
           />
-          {/* Keyword search button temporarily disabled */}
+          {apisection === 'statute' && (
+            <a href="/lainsaadanto/asiasanat" style={keywordLinkStyle}>
+              {language === 'fin' ? 'Asiasanahaku' : 'Ämnesordssökning'}
+            </a>
+          )}
           <div id="errorblock">
             <Notification message={errorMessage} />
           </div>
