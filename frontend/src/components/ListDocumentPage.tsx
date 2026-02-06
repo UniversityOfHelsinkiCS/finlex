@@ -64,9 +64,13 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
     display: 'inline-block',
     marginTop: '6px',
     marginBottom: '10px',
-    color: '#0C6FC0',
-    textDecoration: 'none',
-    fontSize: '14px'
+    color: '#fafafa',
+    backgroundColor: '#0C6FC0',
+    fontSize: '15px',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '2px',
+    textDecoration: 'none'
   }
 
   function logError(error: unknown, msg: string) {
