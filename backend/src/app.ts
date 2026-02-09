@@ -6,6 +6,7 @@ import mediaRouter from './controllers/media.js';
 import statuteRouter from './controllers/statute.js';
 import judgmentRouter from './controllers/judgment.js';
 import keywordRouter from './controllers/keyword.js';
+import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
@@ -297,6 +298,7 @@ app.get('/favicon.ico', (request: express.Request, response: express.Response): 
 app.use(express.static(path.join(__dirname, 'frontend')))
 app.use('/media', mediaRouter)
 app.use('/api/statute/keyword', keywordRouter);
+app.use('/api/judgment/keyword', judgmentKeywordRouter);
 app.use('/api/statute', statuteRouter)
 app.use('/api/judgment', judgmentRouter);
 

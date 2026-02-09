@@ -27,8 +27,20 @@ export async function getStatuteKeywords(language: string) {
   return result.rows;
 }
 
+export async function getJudgmentKeywords(language: string) {
+  const sql = 'SELECT keywords_judgment.keyword AS id, keywords_judgment.keyword FROM keywords_judgment JOIN judgments ON judgments.uuid=keywords_judgment.judgment_uuid WHERE judgments.language = $1 GROUP BY keywords_judgment.keyword ORDER BY keywords_judgment.keyword';
+  const result = await query(sql, [language]);
+  return result.rows;
+}
+
 export async function getStatutesByKeywordID(language: string, keyword_id: string) {
   const sql = 'SELECT statutes.number, statutes.year, statutes.title, keywords_statute.keyword FROM statutes JOIN keywords_statute ON statutes.uuid=keywords_statute.statute_uuid WHERE keywords_statute.language=$1 AND keywords_statute.id=$2';
+  const result = await query(sql, [language, keyword_id]);
+  return result.rows;
+}
+
+export async function getJudgmentsByKeywordID(language: string, keyword_id: string) {
+  const sql = 'SELECT judgments.number, judgments.year, judgments.level, keywords_judgment.keyword FROM judgments JOIN keywords_judgment ON judgments.uuid=keywords_judgment.judgment_uuid WHERE judgments.language=$1 AND keywords_judgment.keyword=$2';
   const result = await query(sql, [language, keyword_id]);
   return result.rows;
 }

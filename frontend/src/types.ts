@@ -83,6 +83,13 @@ export interface LawByKey {
   keyword: string
 }
 
+export interface JudgmentByKey {
+  number: string,
+  year: string,
+  level: string,
+  keyword: string
+}
+
 export interface KeysType {
   id: string,
   keyword: string

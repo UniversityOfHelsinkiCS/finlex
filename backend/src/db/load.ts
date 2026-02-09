@@ -239,20 +239,94 @@ export function parseKeywordsfromHTML(html: string, lang: string): string[] {
 
   const keywordTag = lang === 'fin' ? 'Asiasanat' : 'Ämnesord';
 
+  const extractFromNextPayload = (source: string, tag: string): string[] => {
+    const keywords: string[] = [];
+    // Find the Asiasanat section marker in escaped JSON: \"Asiasanat\"
+    const asiaIdx = source.indexOf(`\\"${tag}\\"`);
+    if (asiaIdx === -1) return keywords;
+
+    // Extract a large window around it
+    const windowStart = asiaIdx;
+    const windowEnd = Math.min(asiaIdx + 50000, source.length);
+    const window = source.slice(windowStart, windowEnd);
+
+    // Pattern for keyword divs in escaped JSON:
+    // [\"$\",\"div\",\"<keyword>\",{\"children\":[[
+    const keywordDivPattern = /\[\\"[$]\\",\\"div\\",\\"([^\\\"]+)\\",\{\\"children\\":\[\[/g;
+
+    let divMatch;
+    while ((divMatch = keywordDivPattern.exec(window)) !== null) {
+      const keywordLabel = divMatch[1];
+
+      // Skip the tag label itself (e.g., "Asiasanat")
+      if (keywordLabel === tag) continue;
+
+      const divStart = divMatch.index + divMatch[0].length;
+      const divEnd = window.indexOf('],false]', divStart);
+      const divSection = divEnd !== -1
+        ? window.slice(divStart, divEnd)
+        : window.slice(divStart, divStart + 800);
+
+      // Extract bold text (escaped version)
+      const boldMatch = divSection.match(/\\"span\\",null,\{\\"className\\":\\"styles_bold[^\\"]*\\",\\"children\\":\\"([^\\"]+)\\"\}/);
+      const boldText = boldMatch ? boldMatch[1] : keywordLabel;
+
+      // Extract detail text array: \"children\":[\" - \",\"DETAIL\"]
+      const detailMatch = divSection.match(/\\"children\\":\[\\" - \\",\\"([^\\"]+)\\"\]/);
+      const detailText = detailMatch ? detailMatch[1] : '';
+
+      const fullKeyword = detailText ? `${boldText} - ${detailText}` : boldText;
+      if (fullKeyword) {
+        const splitKeywords = fullKeyword
+          .split(' - ')
+          .map(item => item.trim())
+          .filter(item => item.length > 0);
+
+        for (const item of splitKeywords) {
+          if (!keywords.includes(item)) {
+            keywords.push(item);
+          }
+        }
+      }
+    }
+
+    return keywords;
+  };
+
   const dt = Array.from(doc.querySelectorAll('dt'))
     .find(el => el.textContent?.trim() === keywordTag);
   if (!dt) {
+    const fallback = extractFromNextPayload(html, keywordTag);
+    if (fallback.length > 0) {
+      return fallback;
+    }
+    const fallbackAlt = extractFromNextPayload(html, 'Asiasanat');
+    if (fallbackAlt.length > 0) {
+      return fallbackAlt;
+    }
+    const fallbackSwe = extractFromNextPayload(html, 'Ämnesord');
+    if (fallbackSwe.length > 0) {
+      return fallbackSwe;
+    }
     return [];
   }
 
   const dd = dt.nextElementSibling;
   if (!dd || dd.tagName.toLowerCase() !== 'dd') {
+    const fallback = extractFromNextPayload(html, keywordTag);
+    if (fallback.length > 0) {
+      return fallback;
+    }
     return [];
   }
 
   const wrapper = Array.from(dd.children)
     .find(el => el.tagName.toLowerCase() === 'div') as HTMLElement | undefined;
   if (!wrapper) {
+    const fallback = extractFromNextPayload(html, keywordTag);
+    if (fallback.length > 0) {
+      return fallback;
+    }
     return [];
   }
 
@@ -418,10 +492,18 @@ function extractLangSectionFromDom(inputHTML: string, lang: 'fin' | 'swe'): { co
 
   // Finlex uses two-letter language tags in the rendered Akomantoso section
   const langCode = lang === 'fin' ? 'fi' : 'sv';
-  const section = doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode}"]`) as HTMLElement | null;
-  if (!section) return null;
+  const section =
+    doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode}"]`) ||
+    doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode.toUpperCase()}"]`) ||
+    doc.querySelector('section[class*="akomaNtoso"]');
 
-  const is_empty = (section.textContent ?? '').trim() === '';
+  if (!section) {
+    return null;
+  }
+
+  const paragraphs = section.querySelectorAll('p');
+  const is_empty = !Array.from(paragraphs).some(p => (p.textContent ?? '').trim() !== '');
+
   return { content: section.outerHTML, is_empty };
 }
 
@@ -431,25 +513,26 @@ async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ cont
   });
   const inputHTML = result.data as string;
   const keywords = parseKeywordsfromHTML(inputHTML, lang);
+
   // Prefer DOM extraction scoped by the explicit lang attribute to avoid mixed-language payloads.
   const domSection = extractLangSectionFromDom(inputHTML, lang === 'fin' ? 'fin' : 'swe');
   if (domSection) {
     return { content: domSection.content, is_empty: domSection.is_empty, keywords };
   }
-  
+
   const flightFragments = parseFlightStreamContent(inputHTML, lang === 'fin' ? 'fin' : 'swe');
-  
+
   if (flightFragments.length > 0) {
     const paragraphs = flightFragments
       .map(text => `<p class="highlightable">${text}</p>`)
       .join('\n');
-    
+
     const content = `<section class="styles_akomaNtoso__parsed">\n${paragraphs}\n</section>`;
     const is_empty = flightFragments.length === 0 || flightFragments.every(f => f.trim() === '');
-    
+
     return { content, is_empty, keywords };
   }
-  
+
   // Fallback to DOM parsing for older pages
   const dom = new JSDOM(inputHTML);
   const doc = dom.window.document;
@@ -625,8 +708,11 @@ async function setSingleJudgment(uri: string) {
   }
   const judgmentUuid = await setJudgment(judgment)
 
+  const targetLang: 'fin' | 'swe' = language === 'fin' ? 'fin' : 'swe';
+  const filteredKeywords = html.keywords.filter(keyword => detectLanguage(keyword) === targetLang);
+
   let i = 0
-  for (const keyword of html.keywords) {
+  for (const keyword of filteredKeywords) {
     ++i;
     const key: JudgmentKeyWord = {
       id: `${judgment.level}:${judgment.year}:${judgment.number}-${i}`,

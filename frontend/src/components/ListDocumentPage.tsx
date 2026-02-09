@@ -177,6 +177,11 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
               {language === 'fin' ? 'Asiasanahaku' : 'Ämnesordssökning'}
             </a>
           )}
+          {apisection === 'judgment' && (
+            <a href="/oikeuskaytanto/asiasanat" style={keywordLinkStyle}>
+              {language === 'fin' ? 'Asiasanahaku' : 'Ämnesordssökning'}
+            </a>
+          )}
           <div id="errorblock">
             <Notification message={errorMessage} />
           </div>

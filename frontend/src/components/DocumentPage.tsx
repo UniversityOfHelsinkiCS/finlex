@@ -107,7 +107,8 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
 
     try {
       const htmlResp = await axios.get(path)
-      const htmlText: string = `<h1>${doclevel} ${docnumber}/${docyear} </h1> ${htmlResp.data}`
+      const levelLabel = doclevel ? doclevel.toUpperCase() : ''
+      const htmlText: string = `<h1>${levelLabel} ${docnumber}/${docyear} </h1> ${htmlResp.data}`
       setLaw(htmlText)
     }
     catch (error) {
