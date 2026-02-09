@@ -17,7 +17,8 @@ RUN npm run build
 
 WORKDIR /home/node/app/backend
 COPY backend/package.json .
-RUN npm install --prefer-offline --no-audit
+COPY backend/package-lock.json .
+RUN npm ci --prefer-offline --no-audit
 
 COPY backend/tsconfig.json .
 COPY backend/src ./src
