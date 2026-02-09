@@ -11,14 +11,7 @@ docker compose up
 
 ## To Do
 Palautteet:
-- Lempinimet (lyhenteet)
-- Asiasanat (rikos -> rikoslaki)
-- Joitain puuttuvia lakeja (esim. kaaret, strafflag)
-- Joku epäsäännöllisyys Finlexin ajantasainen/alkuperäinen systeemin kanssa
 - Sisällysluettelon koko pystysuunnassa, peittävyys sivusuunnassa
-- Hakutulosten sorttaus (nyt kronologinen, parempi relevanssi?)
-- ~Takaisin-nappula laista~
-- Asetusten sorttaaminen (tukeeko api?)
 - Kielen vaihto ei toimi kaikissa laeissa (ei toisenkielistä versiota todnäk)
 - Sisällysluettelo puuttuu osasta (Maakaari)
 
