@@ -4,10 +4,10 @@ import {
 } from 'react-router-dom'
 import ListDocumentPage from './components/ListDocumentPage'
 import DocumentPage from './components/DocumentPage'
-import KeywordPage from './components/KeywordPage'
-import KeywordLawPage from './components/KeywordLawPage'
-import KeywordJudgmentPage from './components/KeywordJudgmentPage'
-import KeywordJudgmentListPage from './components/KeywordJudgmentListPage'
+import KeywordStatuteList from './components/KeywordStatuteList'
+import KeywordStatuteResults from './components/KeywordStatuteResults'
+import KeywordJudgmentList from './components/KeywordJudgmentList'
+import KeywordJudgmentResults from './components/KeywordJudgmentResults'
 import AdminPage from './components/AdminPage'
 import { useState, useEffect, useCallback } from 'react'
 import { Helmet } from "react-helmet"
@@ -114,13 +114,13 @@ const App = () => {
               element={<DocumentPage language={language}  apipath="statute" />
               }
             />
-            <Route key="keywords" path="/lainsaadanto/asiasanat" element={<KeywordPage language={language} />}
+            <Route key="keyword_statute_list" path="/lainsaadanto/asiasanat" element={<KeywordStatuteList language={language} />}
             />
-            <Route key="keyword_laws" path="/lainsaadanto/asiasanat/:keyword_id" element={<KeywordLawPage language={language} />}
+            <Route key="keyword_statute_results" path="/lainsaadanto/asiasanat/:keyword_id" element={<KeywordStatuteResults language={language} />}
             />
-            <Route key="judgment_keywords" path="/oikeuskaytanto/asiasanat" element={<KeywordJudgmentPage language={language} />}
+            <Route key="keyword_judgment_list" path="/oikeuskaytanto/asiasanat" element={<KeywordJudgmentList language={language} />}
             />
-            <Route key="judgment_keyword_list" path="/oikeuskaytanto/asiasanat/:keyword_id" element={<KeywordJudgmentListPage language={language} />}
+            <Route key="keyword_judgment_results" path="/oikeuskaytanto/asiasanat/:keyword_id" element={<KeywordJudgmentResults language={language} />}
             />
             <Route key="caselistpage" path="/oikeuskaytanto"
               element={<ListDocumentPage language={language} setLanguage={setLanguage} buttonetext={buttontext} apisection="judgment"

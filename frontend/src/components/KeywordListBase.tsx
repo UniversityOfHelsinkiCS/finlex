@@ -1,16 +1,20 @@
 import axios from 'axios'
 import { useEffect, useState } from 'react'
-import type { KeywordPageType, JudgmentByKey } from '../types'
-import { useParams } from 'react-router-dom'
 import { Helmet } from 'react-helmet'
 import TopMenu from './TopMenu'
+import type { KeysType, KeywordPageType } from '../types'
 
-const KeywordJudgmentListPage = ({ language }: KeywordPageType) => {
-  const keyword_id: string = decodeURIComponent(useParams().keyword_id ?? '')
-  const [judgments, setJudgments] = useState<JudgmentByKey[]>([])
+interface KeywordListBaseProps extends KeywordPageType {
+  apiBasePath: string
+  routeBasePath: string
+}
+
+const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBaseProps) => {
+  const [keywords, setKeywords] = useState<KeysType[]>([])
   const [lan, setLan] = useState<string>(() => localStorage.getItem('language') || language)
-  const path = `/api/judgment/keyword/${lan}/${encodeURIComponent(keyword_id)}`
+  const path = `${apiBasePath}/${lan}`
   const title = lan === 'fin' ? 'Asiasanat' : 'Ämnesord'
+  let letter = ''
 
   const topStyle: React.CSSProperties = {
     display: 'flex',
@@ -27,13 +31,6 @@ const KeywordJudgmentListPage = ({ language }: KeywordPageType) => {
     border: '0px solid red'
   }
 
-  const listStyle: React.CSSProperties = {
-    width: '500px',
-    backgroundColor: '#F3F8FC',
-    padding: '10px',
-    margin: '4px'
-  }
-
   const contentStyle: React.CSSProperties = {
     display: 'flex',
     justifyContent: 'center',
@@ -47,23 +44,24 @@ const KeywordJudgmentListPage = ({ language }: KeywordPageType) => {
     marginTop: '50px'
   }
 
-  const getJudgments = async (path: string) => {
-    const resp = await axios.get(path)
-    setJudgments(resp.data)
+  const getKeywords = async (url: string) => {
+    const resp = await axios.get(url)
+    setKeywords(resp.data)
   }
 
   useEffect(() => {
-    getJudgments(path)
+    getKeywords(path)
   }, [path])
 
-  function prepareLink(judgment: JudgmentByKey): string {
-    return `/oikeuskaytanto/${judgment.year}/${judgment.number}/${judgment.level}`
+  function prepareLink(keyword_id: string) {
+    return `${routeBasePath}/${encodeURIComponent(keyword_id)}`
   }
 
   const handleSelect = (event: React.SyntheticEvent) => {
     const currentValue = (event.target as HTMLInputElement).value
     setLan(currentValue)
     localStorage.setItem('language', currentValue)
+    setKeywords([])
   }
 
   return (
@@ -78,18 +76,24 @@ const KeywordJudgmentListPage = ({ language }: KeywordPageType) => {
       </div>
       <div style={contentStyle} id="contentdiv">
         <div id="contentDiv" style={contentContainerStyle}>
-          <h1>{title} - {judgments.length > 0 && ` ${judgments[0].keyword}`}</h1>
-          {Array.isArray(judgments) && judgments.map(judgment => (
-            <div style={listStyle} key={`${judgment.level}-${judgment.number}-${judgment.year}`}>
-              <a href={prepareLink(judgment)}>
-                <b>{judgment.level.toUpperCase()} {judgment.number}/{judgment.year}</b>
-              </a>
-            </div>
-          ))}
+          <h1>{title}</h1>
+          {Array.isArray(keywords) && keywords.map(keyword => {
+            const firstLetter = keyword.keyword.charAt(0).toUpperCase()
+            const letterChanged = firstLetter !== letter
+            letter = firstLetter
+            return (
+              <div key={`${keyword.id}-upper`}>
+                {letterChanged && <h2>{firstLetter}</h2>}
+                <div key={keyword.id}>
+                  <a href={prepareLink(keyword.id)}>{keyword.keyword}</a>
+                </div>
+              </div>
+            )
+          })}
         </div>
       </div>
     </>
   )
 }
 
-export default KeywordJudgmentListPage
+export default KeywordListBase
