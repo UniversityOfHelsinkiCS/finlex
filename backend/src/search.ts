@@ -80,6 +80,78 @@ export function extractParagraphs(xmlString: string): string[] {
   return Array.from(pNodes, p => (p.textContent || '').trim()).filter(t => t);
 }
 
+function resolveLangShort(lang: string): "fi" | "sv" {
+  if (lang === "fin") return "fi";
+  if (lang === "swe") return "sv";
+  throw new Error(`Unsupported language: ${lang}`);
+}
+
+async function ensureStatuteCollection(lang: string): Promise<string> {
+  const lang_short = resolveLangShort(lang);
+  const collectionName = `statutes_${lang}`;
+  const schema: CollectionCreateSchema = {
+    name: collectionName,
+    fields: [
+      { name: "id", type: "string", index: false },
+      { name: "title", type: "string", locale: lang_short },
+      { name: "year_num", type: "int32" },
+      { name: "year", type: "string" },
+      { name: "number", type: "string" },
+      { name: "common_names", type: "string[]", locale: lang_short },
+      { name: "keywords", type: "string[]", locale: lang_short },
+      { name: "version", type: "string", index: false },
+      { name: "headings", type: "string[]", locale: lang_short },
+      { name: "paragraphs", type: "string[]", locale: lang_short },
+      { name: "has_content", type: "int32" },
+    ],
+  };
+
+  try {
+    await tsClient.collections().create(schema);
+    console.log(`Created collection ${collectionName}`);
+  } catch (err) {
+    if (!(err instanceof Errors.ObjectAlreadyExists)) {
+      console.error(`Error creating collection ${collectionName}:`, err);
+      Sentry.captureException(err);
+      throw err;
+    }
+  }
+
+  return collectionName;
+}
+
+async function ensureJudgmentCollection(lang: string): Promise<string> {
+  const lang_short = resolveLangShort(lang);
+  const collectionName = `judgments_${lang}`;
+  const schema: CollectionCreateSchema = {
+    name: collectionName,
+    fields: [
+      { name: "id", type: "string", index: false },
+      { name: "year_num", type: "int32" },
+      { name: "year", type: "string" },
+      { name: "number", type: "string" },
+      { name: "level", type: "string" },
+      { name: "keywords", type: "string[]", locale: lang_short },
+      { name: "headings", type: "string[]", locale: lang_short },
+      { name: "paragraphs", type: "string[]", locale: lang_short },
+      { name: "has_content", type: "int32" },
+    ],
+  };
+
+  try {
+    await tsClient.collections().create(schema);
+    console.log(`Created collection ${collectionName}`);
+  } catch (err) {
+    if (!(err instanceof Errors.ObjectAlreadyExists)) {
+      console.error(`Error creating collection ${collectionName}:`, err);
+      Sentry.captureException(err);
+      throw err;
+    }
+  }
+
+  return collectionName;
+}
+
 export function extractParagraphsHtml(html: string): string[] {
   const dom = new JSDOM(html);
   const ps = dom.window.document.querySelectorAll('p');
@@ -132,45 +204,9 @@ async function upsertWithRetry(collectionName: string, document: Record<string, 
 
 
 export async function syncStatutes(lang: string, range?: { startYear?: number; endYear?: number }) {
-  let lang_short
-  if (lang === "fin") {
-    lang_short = "fi";
-  } else if (lang === "swe") {
-    lang_short = "sv";
-  } else {
-    throw new Error(`Unsupported language: ${lang}`);
-  }
-  const collectionName = `statutes_${lang}`;
+  const collectionName = await ensureStatuteCollection(lang);
+  const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
   console.log(`Indexing: ${lang} -> ${collectionName}`);
-
-  const schema: CollectionCreateSchema = {
-    name: collectionName,
-    fields: [
-      { name: "id", type: "string", index: false },
-      { name: "title", type: "string", locale: lang_short },
-      { name: "year_num", type: "int32" },
-      { name: "year", type: "string" },
-      { name: "number", type: "string" },
-      { name: "common_names", type: "string[]", locale: lang_short },
-      { name: "keywords", type: "string[]", locale: lang_short },
-      { name: "version", type: "string", index: false },
-      { name: "headings", type: "string[]", locale: lang_short },
-      { name: "paragraphs", type: "string[]", locale: lang_short },
-      { name: "has_content", type: "int32" },
-    ],
-  };
-
-  try {
-    await tsClient.collections().create(schema);
-    console.log(`Created collection ${collectionName}`);
-  } catch (err) {
-    if (!(err instanceof Errors.ObjectAlreadyExists)) {
-      console.error(`Error creating collection ${collectionName}:`, err);
-      Sentry.captureException(err);
-      throw err;
-    }
-    console.log(`Collection ${collectionName} already exists`);
-  }
 
   const startYear = range?.startYear ?? yearFrom();
   const endYear = range?.endYear ?? yearTo();
@@ -223,8 +259,8 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
           common_names: commonNames,
           keywords: keywords,
           version: row.version ?? '',
-          headings: normalizeText(headings, lang),
-          paragraphs: normalizeText(paragraphs, lang),
+          headings: normalizeText(headings, langKey),
+          paragraphs: normalizeText(paragraphs, langKey),
         });
       } catch (error) {
         console.log('--- errored -->', row.id);
@@ -238,43 +274,9 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
 }
 
 export async function syncJudgments(lang: string, range?: { startYear?: number; endYear?: number }) {
-  let lang_short
-  if (lang === "fin") {
-    lang_short = "fi";
-  } else if (lang === "swe") {
-    lang_short = "sv";
-  } else {
-    throw new Error(`Unsupported language: ${lang}`);
-  }
-  const collectionName = `judgments_${lang}`;
+  const collectionName = await ensureJudgmentCollection(lang);
+  const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
   console.log(`\n=== Indexing: ${lang} -> ${collectionName}`);
-
-  const schema: CollectionCreateSchema = {
-    name: collectionName,
-    fields: [
-      { name: "id", type: "string", index: false },
-      { name: "year_num", type: "int32" },
-      { name: "year", type: "string" },
-      { name: "number", type: "string" },
-      { name: "level", type: "string" },
-      { name: "keywords", type: "string[]", locale: lang_short },
-      { name: "headings", type: "string[]", locale: lang_short },
-      { name: "paragraphs", type: "string[]", locale: lang_short },
-      { name: "has_content", type: "int32" },
-    ],
-  };
-
-  try {
-    await tsClient.collections().create(schema);
-    console.log(`Created collection ${collectionName}`);
-  } catch (err) {
-    if (!(err instanceof Errors.ObjectAlreadyExists)) {
-      console.error(`Error creating collection ${collectionName}:`, err);
-      Sentry.captureException(err);
-      throw err;
-    }
-    console.log(`Collection ${collectionName} already exists`);
-  }
 
   const startYear = range?.startYear ?? yearFrom();
   const endYear = range?.endYear ?? yearTo();
@@ -318,12 +320,103 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
         level: localeLevel(row.level, lang),
         number: row.number,
         keywords: keywords,
-        headings: normalizeText(headings, lang),
-        paragraphs: normalizeText(paragraphs, lang),
+        headings: normalizeText(headings, langKey),
+        paragraphs: normalizeText(paragraphs, langKey),
         has_content: row.is_empty ? 0 : 1,
       });
     }
   }
+}
+
+export async function upsertStatuteByUuid(lang: string, statuteUuid: string): Promise<void> {
+  const collectionName = await ensureStatuteCollection(lang);
+  const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
+  const { rows } = await query(
+    `
+      SELECT
+          uuid   AS id,
+          title  AS title,
+          number AS number,
+          year   AS year,
+          is_empty AS is_empty,
+          version AS version,
+          content::text AS content
+      FROM statutes
+      WHERE uuid = $1 AND language = $2
+      LIMIT 1
+    `,
+    [statuteUuid, lang]
+  );
+
+  if (rows.length === 0) {
+    console.warn(`upsertStatuteByUuid: no statute found for ${statuteUuid} (${lang})`);
+    return;
+  }
+
+  const row = rows[0];
+  const parsed_xml = await parseStringPromise(row.content, { explicitArray: false });
+  const headingTree: Heading[] = parseXmlHeadings(parsed_xml) ?? [];
+  const headings = flattenHeadings(headingTree);
+  const paragraphs = extractParagraphs(row.content);
+  const commonNames = await getCommonNamesByStatuteUuid(row.id);
+  const keywords = await getStatuteKeywordsByStatuteUuid(row.id);
+
+  await upsertWithRetry(collectionName, {
+    id: row.id,
+    title: row.title,
+    year: String(row.year),
+    year_num: parseInt(row.year, 10),
+    number: row.number,
+    has_content: row.is_empty ? 0 : 1,
+    common_names: commonNames,
+    keywords: keywords,
+    version: row.version ?? '',
+    headings: normalizeText(headings, langKey),
+    paragraphs: normalizeText(paragraphs, langKey),
+  });
+}
+
+export async function upsertJudgmentByUuid(lang: string, judgmentUuid: string): Promise<void> {
+  const collectionName = await ensureJudgmentCollection(lang);
+  const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
+  const { rows } = await query(
+    `
+      SELECT
+          uuid   AS id,
+          number AS number,
+          year   AS year,
+          level  AS level,
+          is_empty AS is_empty,
+          content::text AS content
+      FROM judgments
+      WHERE uuid = $1 AND language = $2
+      LIMIT 1
+    `,
+    [judgmentUuid, lang]
+  );
+
+  if (rows.length === 0) {
+    console.warn(`upsertJudgmentByUuid: no judgment found for ${judgmentUuid} (${lang})`);
+    return;
+  }
+
+  const row = rows[0];
+  const headingTree: Heading[] = parseHtmlHeadings(row.content) ?? [];
+  const headings = flattenHeadings(headingTree);
+  const paragraphs = extractParagraphsHtml(row.content);
+  const keywords = await getJudgmentKeywordsByJudgmentUuid(row.id);
+
+  await upsertWithRetry(collectionName, {
+    id: row.id,
+    year: String(row.year),
+    year_num: parseInt(row.year, 10),
+    level: localeLevel(row.level, lang),
+    number: row.number,
+    keywords: keywords,
+    headings: normalizeText(headings, langKey),
+    paragraphs: normalizeText(paragraphs, langKey),
+    has_content: row.is_empty ? 0 : 1,
+  });
 }
 
 

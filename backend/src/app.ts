@@ -16,7 +16,7 @@ import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment
 import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
-import { deleteCollection, syncStatutes, syncJudgments } from './search.js';
+import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid } from './search.js';
 import { query } from './db/db.js';
 
 const app = express()
@@ -184,6 +184,16 @@ app.post('/api/admin/add-statute', verifyAdminToken, async (req: express.Request
     }
 
     await setSingleStatute({ uri: statuteUri, uriOld: statuteUri });
+
+    const statuteResult = await query(
+      'SELECT uuid FROM statutes WHERE number = $1 AND year = $2 AND language = $3 ORDER BY version DESC NULLS LAST LIMIT 1',
+      [numberStr, yearNum, languageStr]
+    );
+    const statuteUuid = statuteResult.rows[0]?.uuid;
+    if (statuteUuid) {
+      await upsertStatuteByUuid(languageStr, statuteUuid);
+    }
+
     res.status(200).json({ message: 'Statute added', statute: statuteKey, uri: statuteUri });
   } catch (error) {
     console.error('Add statute endpoint error:', error);
@@ -213,6 +223,16 @@ app.post('/api/admin/add-judgment', verifyAdminToken, async (req: express.Reques
     };
 
     await setSingleJudgment(buildJudgmentUrl(judgmentKey));
+
+    const judgmentResult = await query(
+      'SELECT uuid FROM judgments WHERE number = $1 AND year = $2 AND language = $3 AND level = $4 LIMIT 1',
+      [numberStr, yearNum, languageStr, levelStr]
+    );
+    const judgmentUuid = judgmentResult.rows[0]?.uuid;
+    if (judgmentUuid) {
+      await upsertJudgmentByUuid(languageStr, judgmentUuid);
+    }
+
     res.status(200).json({ message: 'Judgment added', judgment: judgmentKey });
   } catch (error) {
     console.error('Add judgment endpoint error:', error);
