@@ -166,13 +166,33 @@ async function parseTitlefromXML(result: AxiosResponse<unknown>): Promise<string
     throw new Error('Result node not found in XML')
   }
 
-  const docTitle = resultNode?.act?.preface?.p?.docTitle ||
+  return parseTitleFromXmlObject(resultNode)
+}
+
+export function parseTitleFromXmlObject(resultNode: any): string {
+  const docTitleRaw = resultNode?.act?.preface?.p?.docTitle ||
     resultNode?.decree?.preface?.p?.docTitle;
-  if (!docTitle) {
+  if (!docTitleRaw) {
     throw new Error('docTitle not found')
   }
 
-  return docTitle
+  if (typeof docTitleRaw === 'string') {
+    return docTitleRaw.trim()
+  }
+  if (typeof docTitleRaw === 'object' && typeof docTitleRaw._ === 'string') {
+    return docTitleRaw._.trim()
+  }
+
+  return String(docTitleRaw).trim()
+}
+
+export async function parseTitleFromXmlString(xml: string): Promise<string> {
+  const parsedXmlData = await parseStringPromise(xml, { explicitArray: false })
+  const resultNode = parsedXmlData?.akomaNtoso
+  if (!resultNode) {
+    throw new Error('Result node not found in XML')
+  }
+  return parseTitleFromXmlObject(resultNode)
 }
 
 async function parseImagesfromXML(result: AxiosResponse<unknown>): Promise<string[]> {

@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/node';
 import { Pool, QueryResult } from 'pg';
-import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment } from './load.js';
+import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment, parseTitleFromXmlString } from './load.js';
 import { getStatuteCountByYear, getStatutesByYear } from './models/statute.js';
 import { getJudgmentCountByYear, getJudgmentsByYear } from './models/judgment.js';
 import { StatuteKey } from '../types/statute.js';
@@ -431,6 +431,35 @@ async function deleteStatutesByYear(year: number): Promise<number> {
   }
 }
 
+async function normalizeStatuteTitlesByYear(year: number): Promise<number> {
+  try {
+    const client = await pool.connect();
+    const result = await client.query(
+      'SELECT uuid, content::text AS content FROM statutes WHERE year = $1',
+      [year]
+    );
+    let updatedCount = 0;
+
+    for (const row of result.rows) {
+      try {
+        const title = await parseTitleFromXmlString(row.content);
+        await client.query('UPDATE statutes SET title = $1 WHERE uuid = $2', [title, row.uuid]);
+        updatedCount += 1;
+      } catch (error) {
+        console.error('Failed to normalize title for statute', row.uuid, error);
+        Sentry.captureException(error);
+      }
+    }
+
+    client.release();
+    return updatedCount;
+  } catch (error) {
+    console.error('Error normalizing statute titles by year:', error);
+    Sentry.captureException(error);
+    throw error;
+  }
+}
+
 async function closePool() {
   try {
     await pool.end();
@@ -479,4 +508,4 @@ async function addStatusRow(data: object, updating: boolean = false): Promise<vo
   }
 }
 
-export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear };
+export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear };

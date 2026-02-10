@@ -10,7 +10,7 @@ import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
-import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear } from './db/db.js';
+import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
 import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
 import type { JudgmentKey } from './types/judgment.js';
@@ -325,6 +325,25 @@ app.delete('/api/statute/delete-year/:year', verifyAdminToken, async (req: expre
     console.error('Delete statutes by year endpoint error:', error);
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to delete statutes by year' });
+  }
+});
+
+app.post('/api/statute/normalize-titles/:year', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const yearNum = parseInt(req.params.year as string, 10);
+    if (!yearNum) {
+      res.status(400).json({ error: 'Invalid year parameter' });
+      return;
+    }
+
+    const updatedCount = await normalizeStatuteTitlesByYear(yearNum);
+    await syncStatutes('fin', { startYear: yearNum, endYear: yearNum });
+    await syncStatutes('swe', { startYear: yearNum, endYear: yearNum });
+    res.status(200).json({ message: 'Statute titles normalized', year: yearNum, updatedCount });
+  } catch (error) {
+    console.error('Normalize statute titles endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to normalize statute titles' });
   }
 });
 
