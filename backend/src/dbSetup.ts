@@ -82,7 +82,6 @@ export const runSetup = async (startYear?: number) => {
       await addStatusRow({ message: 'updated', from, to, timestamp: new Date().toISOString() }, false);
       console.log(`[SETUP] Step 5 completed in ${Date.now() - step5Start}ms`);
     }
-    stopFinlexLimiterLogging();
     const totalDuration = Date.now() - setupStartTime;
     const minutes = Math.floor(totalDuration / 60000);
     const seconds = Math.floor((totalDuration % 60000) / 1000);
@@ -92,5 +91,7 @@ export const runSetup = async (startYear?: number) => {
     Sentry.captureException(error);
     console.error(`[SETUP] Setup failed after ${errorDuration}ms:`, error);
     throw error;
+  } finally {
+    stopFinlexLimiterLogging();
   }
 }
