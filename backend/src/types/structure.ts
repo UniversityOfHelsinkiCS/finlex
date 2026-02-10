@@ -16,14 +16,18 @@ export interface Chapter {
     section: Section[]
 }
 
+export interface Part {
+    chapter?: Chapter[]
+}
+
 
 export interface hContainer {
     akomaNtoso: {
         act: {
             body: {
-                hcontainer: [
-                    {chapter: Chapter[]} | {section: Section[]}
-                ]
+                hcontainer:
+                    | {chapter: Chapter[]} | {section: Section[]} | {part: Part[]}
+                    | Array<{chapter: Chapter[]} | {section: Section[]} | {part: Part[]}>
             }
         }
     }

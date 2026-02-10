@@ -40,44 +40,61 @@ export function parseHtmlHeadings(html: string): Heading[] {
 export function parseXmlHeadings(parsed_xml : hContainer) {
   const headings: Heading[] = []
 
-  const obj = parsed_xml.akomaNtoso.act.body.hcontainer[0]
-  if (!obj) return;
+  const containers = toArray(parsed_xml?.akomaNtoso?.act?.body?.hcontainer || [])
+  if (containers.length === 0) return []
 
-  if ('chapter' in obj) {
-    const chapters = toArray(obj.chapter)
-    for (const chap of chapters) {
-      let sub_headings: Heading[]
-
-      if (chap.section) {
-        sub_headings = parseXmlSubSections(chap)
-      } else {
-        sub_headings = []
-      }
-
-      let chap_name
-      if (typeof chap.heading === 'object') {
-        chap_name = chap.heading._.trim()
-      } else if (typeof chap.heading === 'string') {
-        chap_name = chap.heading.trim()
-      }
-
-      const chap_id = chap['$'].eId
-      let chap_key
-      const chapter_num = chap.num && typeof chap.num.trim === 'function' ? chap.num.trim() : ''
-      if (chap_name === undefined) {
-        chap_name = ""
-        chap_key = chapter_num
-      }
-      else {
-        chap_key = chapter_num + " - " + chap_name
-      }
-
-      headings.push({name: chap_key, id: chap_id, content: sub_headings})
+  const buildChapterHeading = (chap: any): Heading => {
+    let chap_name
+    if (typeof chap.heading === 'object') {
+      chap_name = chap.heading._.trim()
+    } else if (typeof chap.heading === 'string') {
+      chap_name = chap.heading.trim()
     }
-    return headings
-  } else {
-    return parseXmlSubSections(obj as Chapter)
+
+    const chap_id = chap['$'].eId
+    let chap_key
+    const chapter_num = chap.num && typeof chap.num.trim === 'function' ? chap.num.trim() : ''
+    if (chap_name === undefined) {
+      chap_name = ""
+      chap_key = chapter_num
+    }
+    else {
+      chap_key = chapter_num + " - " + chap_name
+    }
+
+    const sub_headings = chap.section ? parseXmlSubSections(chap) : []
+    return { name: chap_key, id: chap_id, content: sub_headings }
   }
+
+  for (const container of containers) {
+    if (!container) continue
+
+    if ('part' in container && container.part) {
+      const parts = toArray(container.part)
+      for (const part of parts) {
+        if (!part?.chapter) continue
+        const chapters = toArray(part.chapter)
+        for (const chap of chapters) {
+          headings.push(buildChapterHeading(chap))
+        }
+      }
+      continue
+    }
+
+    if ('chapter' in container && container.chapter) {
+      const chapters = toArray(container.chapter)
+      for (const chap of chapters) {
+        headings.push(buildChapterHeading(chap))
+      }
+      continue
+    }
+
+    if ('section' in container && container.section) {
+      headings.push(...parseXmlSubSections(container as Chapter))
+    }
+  }
+
+  return headings
 }
 
 function parseXmlSubSections(obj: Chapter) {

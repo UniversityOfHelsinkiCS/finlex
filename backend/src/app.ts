@@ -11,9 +11,13 @@ import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables } from './db/db.js';
-import { yearFrom, yearTo } from './util/config.js';
+import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
+import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
+import type { JudgmentKey } from './types/judgment.js';
+import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
 import { deleteCollection, syncStatutes, syncJudgments } from './search.js';
+import { query } from './db/db.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -149,6 +153,74 @@ app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: expre
   }
 });
 
+app.post('/api/admin/add-statute', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const { year, number, language } = req.body || {};
+    const yearNum = parseInt(String(year), 10);
+    const numberStr = String(number || '').trim();
+    const languageStr = String(language || '').trim();
+
+    if (!yearNum || !numberStr || !VALID_LANGUAGES.includes(languageStr)) {
+      res.status(400).json({ error: 'Invalid statute parameters' });
+      return;
+    }
+
+    const statuteKey: StatuteKey = {
+      year: yearNum,
+      number: numberStr,
+      language: languageStr,
+      version: null
+    };
+
+    const uris = await listStatutesByYear(yearNum, languageStr);
+    const matchPrefix = `/${yearNum}/${numberStr}/${languageStr}@`;
+    const matchPrefixFallback = `/${yearNum}/${numberStr}/${languageStr}`;
+    const statuteUri = uris.find(uri => uri.includes(matchPrefix))
+      ?? uris.find(uri => uri.includes(matchPrefixFallback));
+
+    if (!statuteUri) {
+      res.status(404).json({ error: 'Statute not found in Finlex list' });
+      return;
+    }
+
+    await setSingleStatute({ uri: statuteUri, uriOld: statuteUri });
+    res.status(200).json({ message: 'Statute added', statute: statuteKey, uri: statuteUri });
+  } catch (error) {
+    console.error('Add statute endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to add statute' });
+  }
+});
+
+app.post('/api/admin/add-judgment', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const { year, number, language, level } = req.body || {};
+    const yearNum = parseInt(String(year), 10);
+    const numberStr = String(number || '').trim();
+    const languageStr = String(language || '').trim();
+    const levelStr = String(level || '').trim();
+
+    if (!yearNum || !numberStr || !VALID_LANGUAGES.includes(languageStr) || (levelStr !== 'kko' && levelStr !== 'kho')) {
+      res.status(400).json({ error: 'Invalid judgment parameters' });
+      return;
+    }
+
+    const judgmentKey: JudgmentKey = {
+      year: yearNum,
+      number: numberStr,
+      language: languageStr,
+      level: levelStr as 'kho' | 'kko'
+    };
+
+    await setSingleJudgment(buildJudgmentUrl(judgmentKey));
+    res.status(200).json({ message: 'Judgment added', judgment: judgmentKey });
+  } catch (error) {
+    console.error('Add judgment endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to add judgment' });
+  }
+});
+
 app.get('/api/status', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
@@ -248,6 +320,16 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
         console.info('Typesense rebuild started');
         await addStatusRow({ action: 'typesense_rebuild_start', startedAt: new Date().toISOString() }, true);
 
+        const getYearBounds = async (tableName: 'statutes' | 'judgments') => {
+          const { rows } = await query(`SELECT MIN(year) AS min_year, MAX(year) AS max_year FROM ${tableName}`);
+          const minYear = rows[0]?.min_year ? parseInt(rows[0].min_year, 10) : null;
+          const maxYear = rows[0]?.max_year ? parseInt(rows[0].max_year, 10) : null;
+          if (minYear === null || maxYear === null) {
+            return null;
+          }
+          return { startYear: minYear, endYear: maxYear };
+        };
+
         // Delete and recreate collections for both languages
         await deleteCollection('statutes', 'fin');
         await deleteCollection('statutes', 'swe');
@@ -256,10 +338,13 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
         console.log('Old Typesense collections deleted');
 
         // Rebuild indexes from database
-        await syncStatutes('fin');
-        await syncStatutes('swe');
-        await syncJudgments('fin');
-        await syncJudgments('swe');
+        const statuteBounds = await getYearBounds('statutes');
+        const judgmentBounds = await getYearBounds('judgments');
+
+        await syncStatutes('fin', statuteBounds ?? undefined);
+        await syncStatutes('swe', statuteBounds ?? undefined);
+        await syncJudgments('fin', judgmentBounds ?? undefined);
+        await syncJudgments('swe', judgmentBounds ?? undefined);
         console.log('Typesense collections rebuilt');
 
         await addStatusRow({ action: 'typesense_rebuild_complete', completedAt: new Date().toISOString() }, false);

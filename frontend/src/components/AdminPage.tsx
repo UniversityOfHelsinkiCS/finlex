@@ -24,6 +24,15 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const [hasStartedUpdate, setHasStartedUpdate] = useState(false)
   const [startYearInput, setStartYearInput] = useState<string>('')
   const [hasStartedRebuild, setHasStartedRebuild] = useState(false)
+  const [isAddingStatute, setIsAddingStatute] = useState(false)
+  const [isAddingJudgment, setIsAddingJudgment] = useState(false)
+  const [statuteYear, setStatuteYear] = useState('')
+  const [statuteNumber, setStatuteNumber] = useState('')
+  const [statuteLanguage, setStatuteLanguage] = useState('fin')
+  const [judgmentYear, setJudgmentYear] = useState('')
+  const [judgmentNumber, setJudgmentNumber] = useState('')
+  const [judgmentLanguage, setJudgmentLanguage] = useState('fin')
+  const [judgmentLevel, setJudgmentLevel] = useState('kko')
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
 
@@ -189,6 +198,67 @@ const AdminPage = ({ language }: AdminPageProps) => {
         : 'Ombyggnad av index misslyckades. Kontrollera konsolen för mer information.'
       )
       setIsRebuilding(false)
+    }
+  }
+
+  const handleAddStatute = async () => {
+    setIsAddingStatute(true)
+    setMessage('')
+    setError('')
+
+    try {
+      const token = localStorage.getItem('adminToken')
+      const payload: Record<string, string> = {
+        year: statuteYear.trim(),
+        number: statuteNumber.trim(),
+        language: statuteLanguage
+      }
+      const resp = await axios.post('/api/admin/add-statute', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      setMessage(language === 'fin'
+        ? `Laki lisätty: ${resp.data.statute?.number}/${resp.data.statute?.year}`
+        : `Lag tillagd: ${resp.data.statute?.number}/${resp.data.statute?.year}`
+      )
+    } catch (err) {
+      console.error('Add statute failed:', err)
+      setError(language === 'fin'
+        ? 'Lain lisääminen epäonnistui.'
+        : 'Det gick inte att lägga till lagen.'
+      )
+    } finally {
+      setIsAddingStatute(false)
+    }
+  }
+
+  const handleAddJudgment = async () => {
+    setIsAddingJudgment(true)
+    setMessage('')
+    setError('')
+
+    try {
+      const token = localStorage.getItem('adminToken')
+      const payload: Record<string, string> = {
+        year: judgmentYear.trim(),
+        number: judgmentNumber.trim(),
+        language: judgmentLanguage,
+        level: judgmentLevel
+      }
+      const resp = await axios.post('/api/admin/add-judgment', payload, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      setMessage(language === 'fin'
+        ? `Tuomio lisätty: ${resp.data.judgment?.level?.toUpperCase()} ${resp.data.judgment?.number}/${resp.data.judgment?.year}`
+        : `Dom tillagd: ${resp.data.judgment?.level?.toUpperCase()} ${resp.data.judgment?.number}/${resp.data.judgment?.year}`
+      )
+    } catch (err) {
+      console.error('Add judgment failed:', err)
+      setError(language === 'fin'
+        ? 'Tuomion lisääminen epäonnistui.'
+        : 'Det gick inte att lägga till domen.'
+      )
+    } finally {
+      setIsAddingJudgment(false)
     }
   }
 
@@ -444,6 +514,93 @@ const AdminPage = ({ language }: AdminPageProps) => {
                 : (language === 'fin' ? 'Uudelleen rakenna Typesense' : 'Bygga om Typesense')
               }
             </button>
+          </div>
+
+          <div style={{ marginTop: '30px', width: '100%', maxWidth: '800px' }}>
+            <h3 style={{ textAlign: 'center' }}>
+              {language === 'fin' ? 'Lisää yksittäinen asiakirja' : 'Lägg till enstaka dokument'}
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                <strong style={{ minWidth: '160px' }}>{language === 'fin' ? 'Lainsäädäntö:' : 'Lagstiftning:'}</strong>
+                <input
+                  type="number"
+                  value={statuteYear}
+                  onChange={(e) => setStatuteYear(e.target.value)}
+                  placeholder={language === 'fin' ? 'Vuosi' : 'Ar'}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '120px' }}
+                />
+                <input
+                  type="text"
+                  value={statuteNumber}
+                  onChange={(e) => setStatuteNumber(e.target.value)}
+                  placeholder={language === 'fin' ? 'Numero' : 'Nummer'}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '120px' }}
+                />
+                <select
+                  value={statuteLanguage}
+                  onChange={(e) => setStatuteLanguage(e.target.value)}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="fin">Suomi</option>
+                  <option value="swe">Svenska</option>
+                </select>
+                <button
+                  style={buttonStyle}
+                  onClick={handleAddStatute}
+                  disabled={isUpdating || isClearing || isAddingStatute}
+                >
+                  {isAddingStatute
+                    ? (language === 'fin' ? 'Lisätään...' : 'Lägger till...')
+                    : (language === 'fin' ? 'Lisää laki' : 'Lägg till lag')
+                  }
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+                <strong style={{ minWidth: '160px' }}>{language === 'fin' ? 'Oikeuskäytäntö:' : 'Rättspraxis:'}</strong>
+                <input
+                  type="number"
+                  value={judgmentYear}
+                  onChange={(e) => setJudgmentYear(e.target.value)}
+                  placeholder={language === 'fin' ? 'Vuosi' : 'Ar'}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '120px' }}
+                />
+                <input
+                  type="text"
+                  value={judgmentNumber}
+                  onChange={(e) => setJudgmentNumber(e.target.value)}
+                  placeholder={language === 'fin' ? 'Numero' : 'Nummer'}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', width: '120px' }}
+                />
+                <select
+                  value={judgmentLanguage}
+                  onChange={(e) => setJudgmentLanguage(e.target.value)}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="fin">Suomi</option>
+                  <option value="swe">Svenska</option>
+                </select>
+                <select
+                  value={judgmentLevel}
+                  onChange={(e) => setJudgmentLevel(e.target.value)}
+                  style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="kko">KKO</option>
+                  <option value="kho">KHO</option>
+                </select>
+                <button
+                  style={buttonStyle}
+                  onClick={handleAddJudgment}
+                  disabled={isUpdating || isClearing || isAddingJudgment}
+                >
+                  {isAddingJudgment
+                    ? (language === 'fin' ? 'Lisätään...' : 'Lägger till...')
+                    : (language === 'fin' ? 'Lisää tuomio' : 'Lägg till dom')
+                  }
+                </button>
+              </div>
+            </div>
           </div>
 
           {message && (

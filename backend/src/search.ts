@@ -131,7 +131,7 @@ async function upsertWithRetry(collectionName: string, document: Record<string, 
 }
 
 
-export async function syncStatutes(lang: string) {
+export async function syncStatutes(lang: string, range?: { startYear?: number; endYear?: number }) {
   let lang_short
   if (lang === "fin") {
     lang_short = "fi";
@@ -172,7 +172,10 @@ export async function syncStatutes(lang: string) {
     console.log(`Collection ${collectionName} already exists`);
   }
 
-  for (let year = yearFrom(); year <= yearTo(); year++) {
+  const startYear = range?.startYear ?? yearFrom();
+  const endYear = range?.endYear ?? yearTo();
+
+  for (let year = startYear; year <= endYear; year++) {
     console.log('syncStatutes ' + lang + ' ' + year)
 
     const { rows } = await query(
@@ -234,7 +237,7 @@ export async function syncStatutes(lang: string) {
   }
 }
 
-export async function syncJudgments(lang: string) {
+export async function syncJudgments(lang: string, range?: { startYear?: number; endYear?: number }) {
   let lang_short
   if (lang === "fin") {
     lang_short = "fi";
@@ -273,7 +276,10 @@ export async function syncJudgments(lang: string) {
     console.log(`Collection ${collectionName} already exists`);
   }
 
-  for (let year = yearFrom(); year <= yearTo(); year++) {
+  const startYear = range?.startYear ?? yearFrom();
+  const endYear = range?.endYear ?? yearTo();
+
+  for (let year = startYear; year <= endYear; year++) {
     const { rows } = await query(
       `
       SELECT
