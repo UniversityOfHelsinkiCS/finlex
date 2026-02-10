@@ -436,6 +436,7 @@ export async function deleteCollection(name: string, lang: string) {
 }
 
 
+
 export async function searchStatutes(lang: string, queryStr: string): Promise<StatuteSearchResult[]> {
   const searchParameters: any = {
     q: queryStr,

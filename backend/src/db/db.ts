@@ -418,6 +418,19 @@ async function clearStatusRows(): Promise<void> {
   }
 }
 
+async function deleteStatutesByYear(year: number): Promise<number> {
+  try {
+    const client = await pool.connect();
+    const result = await client.query('DELETE FROM statutes WHERE year = $1', [year]);
+    client.release();
+    return result.rowCount ?? 0;
+  } catch (error) {
+    console.error('Error deleting statutes by year:', error);
+    Sentry.captureException(error);
+    throw error;
+  }
+}
+
 async function closePool() {
   try {
     await pool.end();
@@ -466,4 +479,4 @@ async function addStatusRow(data: object, updating: boolean = false): Promise<vo
   }
 }
 
-export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables };
+export { query, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear };

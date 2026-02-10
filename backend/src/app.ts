@@ -10,7 +10,7 @@ import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
-import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables } from './db/db.js';
+import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
 import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
 import type { JudgmentKey } from './types/judgment.js';
@@ -308,6 +308,23 @@ app.delete('/api/delete-database', verifyAdminToken, async (req: express.Request
     console.error('Clear database endpoint error:', error);
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to clear database' });
+  }
+});
+
+app.delete('/api/statute/delete-year/:year', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const yearNum = parseInt(req.params.year as string, 10);
+    if (!yearNum) {
+      res.status(400).json({ error: 'Invalid year parameter' });
+      return;
+    }
+
+    const deletedCount = await deleteStatutesByYear(yearNum);
+    res.status(200).json({ message: 'Statutes deleted', year: yearNum, deletedCount });
+  } catch (error) {
+    console.error('Delete statutes by year endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to delete statutes by year' });
   }
 });
 
