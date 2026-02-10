@@ -10,10 +10,6 @@ docker compose up
 ```
 
 ## To Do
-Palautteet:
-- Sisällysluettelon koko pystysuunnassa, peittävyys sivusuunnassa
-- Kielen vaihto ei toimi kaikissa laeissa (ei toisenkielistä versiota todnäk)
-- Sisällysluettelo puuttuu osasta (Maakaari)
 
 P1
 
@@ -28,8 +24,6 @@ P2
   - käyttää "kielen tunnistamista", joidenkin avainsanojen perusteella
   - HTML/Flight/React dokumenttien parsiminen täsmällisemmin Finlexin puolelta jokseenkin monimutkaista
 
-P3
-- Asiasanojen korjaaminen
 
 ## Tietokannan päivitys/synkronointi
 
