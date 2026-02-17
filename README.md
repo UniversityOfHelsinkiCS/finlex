@@ -12,6 +12,10 @@ docker compose up
 ## To Do
 
 P1
+- Ainakin seuraavat lait eivät typesensessä:
+    - Laki rikosasioiden ja eräiden riita-asioiden sovittelusta
+    - Laki riita-asioiden sovittelusta ja sovinnon vahvistamisesta yleisissä tuomioistuimissa
+- Normalisointi-endpoint ei tee siistiä jälkeä, pitäisi parantaa ja sitten ajaa koko tietokannalle
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
