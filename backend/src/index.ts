@@ -4,8 +4,6 @@ import './util/config.js'
 import * as Sentry from '@sentry/node'
 Sentry.init({
   dsn: "https://9573bbcddd296e79ec5ee2cde228c5ef@toska.it.helsinki.fi/24",
-  // Setting this option to true will send default PII data to Sentry.
-  // For example, automatic IP address collection on events
   sendDefaultPii: true,
 });
 
