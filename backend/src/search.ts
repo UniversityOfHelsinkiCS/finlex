@@ -30,7 +30,7 @@ const tsClient = new Typesense.Client({
     },
   ],
   apiKey: process.env.TYPESENSE_API_KEY,
-  connectionTimeoutSeconds: 2
+  connectionTimeoutSeconds: 30
 });
 
 function flattenHeadings(headings: Heading[]) {
@@ -211,6 +211,14 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
   const startYear = range?.startYear ?? yearFrom();
   const endYear = range?.endYear ?? yearTo();
 
+  const failedStatutes: Array<{
+    id: string;
+    year: number;
+    number: string;
+    title: string;
+    error: string;
+  }> = [];
+
   for (let year = startYear; year <= endYear; year++) {
     console.log('syncStatutes ' + lang + ' ' + year)
 
@@ -263,13 +271,26 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
           paragraphs: normalizeText(paragraphs, langKey),
         });
       } catch (error) {
-        console.log('--- errored -->', row.id);
-        console.log(row);
-        console.log(error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        failedStatutes.push({
+          id: row.id,
+          year: row.year,
+          number: row.number,
+          title: row.title,
+          error: errorMessage
+        });
+        console.error(`Failed to index statute ${row.id} (${row.number}/${row.year}):`, errorMessage);
         Sentry.captureException(error);
       }
 
     }
+  }
+
+  if (failedStatutes.length > 0) {
+    console.error(`\n⚠️  WARNING: ${failedStatutes.length} statute(s) failed to index for language ${lang}:`);
+    console.error(JSON.stringify(failedStatutes, null, 2));
+  } else {
+    console.log(`✓ Successfully indexed all statutes for language ${lang}`);
   }
 }
 
@@ -280,6 +301,14 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
 
   const startYear = range?.startYear ?? yearFrom();
   const endYear = range?.endYear ?? yearTo();
+
+  const failedJudgments: Array<{
+    id: string;
+    year: number;
+    number: string;
+    level: string;
+    error: string;
+  }> = [];
 
   for (let year = startYear; year <= endYear; year++) {
     const { rows } = await query(
@@ -303,28 +332,48 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
 
     while (rows.length > 0) {
       const row = rows.pop()
-      const headingTree: Heading[] = parseHtmlHeadings(row.content) ?? [];
-      const headings = flattenHeadings(headingTree);
-      const paragraphs = extractParagraphsHtml(row.content);
-      const keywords = await getJudgmentKeywordsByJudgmentUuid(row.id);
 
+      try {
+        const headingTree: Heading[] = parseHtmlHeadings(row.content) ?? [];
+        const headings = flattenHeadings(headingTree);
+        const paragraphs = extractParagraphsHtml(row.content);
+        const keywords = await getJudgmentKeywordsByJudgmentUuid(row.id);
 
-      if (rows.length % 100 === 0) {
-        console.log(`syncJudgements ${year}, rows left ` + rows.length)
+        if (rows.length % 100 === 0) {
+          console.log(`syncJudgements ${year}, rows left ` + rows.length)
+        }
+
+        await upsertWithRetry(collectionName, {
+          id: row.id,
+          year: String(row.year),
+          year_num: parseInt(row.year, 10),
+          level: localeLevel(row.level, lang),
+          number: row.number,
+          keywords: keywords,
+          headings: normalizeText(headings, langKey),
+          paragraphs: normalizeText(paragraphs, langKey),
+          has_content: row.is_empty ? 0 : 1,
+        });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        failedJudgments.push({
+          id: row.id,
+          year: row.year,
+          number: row.number,
+          level: row.level,
+          error: errorMessage
+        });
+        console.error(`Failed to index judgment ${row.id} (${row.level} ${row.number}/${row.year}):`, errorMessage);
+        Sentry.captureException(error);
       }
-
-      await upsertWithRetry(collectionName, {
-        id: row.id,
-        year: String(row.year),
-        year_num: parseInt(row.year, 10),
-        level: localeLevel(row.level, lang),
-        number: row.number,
-        keywords: keywords,
-        headings: normalizeText(headings, langKey),
-        paragraphs: normalizeText(paragraphs, langKey),
-        has_content: row.is_empty ? 0 : 1,
-      });
     }
+  }
+
+  if (failedJudgments.length > 0) {
+    console.error(`\n⚠️  WARNING: ${failedJudgments.length} judgment(s) failed to index for language ${lang}:`);
+    console.error(JSON.stringify(failedJudgments, null, 2));
+  } else {
+    console.log(`✓ Successfully indexed all judgments for language ${lang}`);
   }
 }
 
