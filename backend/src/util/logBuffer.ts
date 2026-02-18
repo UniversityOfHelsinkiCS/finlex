@@ -8,7 +8,7 @@ interface LogEntry {
   message: string;
 }
 
-const MAX_LOGS = 500;
+const MAX_LOGS = 1000;
 const buffer: LogEntry[] = [];
 
 export function pushLog(level: LogLevel, args: unknown[]): void {
