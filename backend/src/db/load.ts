@@ -28,19 +28,31 @@ const finlexLimiter = new Bottleneck({
 
 let finlexRequestCount = 0;
 let lastMinuteCount = 0;
+let finlexLogInterval: NodeJS.Timeout | null = null;
+
 finlexLimiter.on('executing', () => {
   finlexRequestCount += 1;
 });
 
-// Report request count every minute
-const finlexLogInterval = setInterval(() => {
-  const requestsThisMinute = finlexRequestCount - lastMinuteCount;
-  console.log(`[finlexLimiter] ${requestsThisMinute} requests in last minute (${finlexRequestCount} total)`);
-  lastMinuteCount = finlexRequestCount;
-}, 60 * 1000);
+export function startFinlexLimiterLogging() {
+  if (finlexLogInterval) {
+    return;
+  }
+  
+  console.log('[finlexLimiter] Starting rate limiter logging...');
+  finlexLogInterval = setInterval(() => {
+    const requestsThisMinute = finlexRequestCount - lastMinuteCount;
+    console.log(`[finlexLimiter] ${requestsThisMinute} requests in last minute (${finlexRequestCount} total)`);
+    lastMinuteCount = finlexRequestCount;
+  }, 60 * 1000);
+}
 
 export function stopFinlexLimiterLogging() {
-  clearInterval(finlexLogInterval);
+  if (finlexLogInterval) {
+    clearInterval(finlexLogInterval);
+    finlexLogInterval = null;
+    console.log('[finlexLimiter] Stopped rate limiter logging.');
+  }
 }
 
 // Generic fetch with exponential backoff and jitter, still honoring the limiter.

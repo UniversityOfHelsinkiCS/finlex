@@ -1,5 +1,5 @@
 import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows } from "./db/db.js";
-import { stopFinlexLimiterLogging } from "./db/load.js";
+import { stopFinlexLimiterLogging, startFinlexLimiterLogging } from "./db/load.js";
 import * as Sentry from '@sentry/node';
 import './util/config.js';
 import { exit } from 'process';
@@ -43,6 +43,9 @@ async function initDatabase(startYear?: number) {
 
 export const runSetup = async (startYear?: number) => {
   const setupStartTime = Date.now();
+  
+  startFinlexLimiterLogging();
+  
   try {
     if (process.env.NODE_ENV === 'test') {
       console.log('[SETUP] Running in test mode...');
