@@ -435,7 +435,7 @@ async function normalizeStatuteTitlesByYear(year: number): Promise<number> {
   try {
     const client = await pool.connect();
     const result = await client.query(
-      'SELECT uuid, content::text AS content FROM statutes WHERE year = $1',
+      'SELECT uuid, content::text AS content, number, language FROM statutes WHERE year = $1',
       [year]
     );
     let updatedCount = 0;
@@ -445,13 +445,15 @@ async function normalizeStatuteTitlesByYear(year: number): Promise<number> {
         const title = await parseTitleFromXmlString(row.content);
         await client.query('UPDATE statutes SET title = $1 WHERE uuid = $2', [title, row.uuid]);
         updatedCount += 1;
+        console.log(`[normalize] Updated title for statute ${row.number}/${year} (${row.language}): "${title}"`);
       } catch (error) {
-        console.error('Failed to normalize title for statute', row.uuid, error);
+        console.error(`Failed to normalize title for statute ${row.uuid} (${row.number}/${year}, ${row.language}):`, error);
         Sentry.captureException(error);
       }
     }
 
     client.release();
+    console.log(`[normalize] Successfully updated ${updatedCount} out of ${result.rows.length} statutes for year ${year}`);
     return updatedCount;
   } catch (error) {
     console.error('Error normalizing statute titles by year:', error);

@@ -336,10 +336,19 @@ app.post('/api/statute/normalize-titles/:year', verifyAdminToken, async (req: ex
       return;
     }
 
+    console.log(`[normalize-titles] Starting normalization for year ${yearNum}`);
     const updatedCount = await normalizeStatuteTitlesByYear(yearNum);
+    console.log(`[normalize-titles] Normalized ${updatedCount} statutes, now syncing to Typesense...`);
+    
     await syncStatutes('fin', { startYear: yearNum, endYear: yearNum });
     await syncStatutes('swe', { startYear: yearNum, endYear: yearNum });
-    res.status(200).json({ message: 'Statute titles normalized', year: yearNum, updatedCount });
+    
+    console.log(`[normalize-titles] Successfully completed normalization and sync for year ${yearNum}`);
+    res.status(200).json({ 
+      message: 'Statute titles normalized and synced', 
+      year: yearNum, 
+      updatedCount 
+    });
   } catch (error) {
     console.error('Normalize statute titles endpoint error:', error);
     Sentry.captureException(error);

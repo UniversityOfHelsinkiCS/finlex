@@ -36,7 +36,7 @@ finlexLimiter.on('executing', () => {
 
 export function startFinlexLimiterLogging() {
   if (finlexLogInterval) {
-    return;
+    return; // Already started
   }
   
   console.log('[finlexLimiter] Starting rate limiter logging...');
@@ -166,19 +166,40 @@ function buildJudgmentUrl(judgment: JudgmentKey): string {
   return `${baseUrl}/${casestatute}/${prefix}/${path}`;
 }
 
-
-
+function parseTitleFromXMLDOM(xmlString: string): string {
+  const dom = new JSDOM(xmlString, { contentType: 'text/xml' });
+  const doc = dom.window.document;
+  
+  // Find the docTitle element
+  const docTitleElement = doc.querySelector('docTitle');
+  
+  if (!docTitleElement) {
+    throw new Error('docTitle not found in XML');
+  }
+  
+  // Get the text content which preserves document order
+  const title = docTitleElement.textContent || '';
+  
+  // Clean up extra whitespace and newlines
+  return title.replace(/\s+/g, ' ').trim();
+}
 
 async function parseTitlefromXML(result: AxiosResponse<unknown>): Promise<string> {
-  const xmlData = result.data as Promise<string>;
-  const parsedXmlData = await parseStringPromise(xmlData, { explicitArray: false })
-
-  const resultNode = parsedXmlData?.akomaNtoso
-  if (!resultNode) {
-    throw new Error('Result node not found in XML')
+  const xmlString = result.data as string;
+  
+  try {
+    // Use DOM parser to preserve document order
+    return parseTitleFromXMLDOM(xmlString);
+  } catch (domError) {
+    // Fallback to xml2js parser
+    console.warn('DOM parsing failed, falling back to xml2js:', domError);
+    const parsedXmlData = await parseStringPromise(xmlString, { explicitArray: false })
+    const resultNode = parsedXmlData?.akomaNtoso
+    if (!resultNode) {
+      throw new Error('Result node not found in XML')
+    }
+    return parseTitleFromXmlObject(resultNode)
   }
-
-  return parseTitleFromXmlObject(resultNode)
 }
 
 export function parseTitleFromXmlObject(resultNode: any): string {
@@ -188,23 +209,56 @@ export function parseTitleFromXmlObject(resultNode: any): string {
     throw new Error('docTitle not found')
   }
 
-  if (typeof docTitleRaw === 'string') {
-    return docTitleRaw.trim()
-  }
-  if (typeof docTitleRaw === 'object' && typeof docTitleRaw._ === 'string') {
-    return docTitleRaw._.trim()
+  // Helper function to recursively extract text from nested objects
+  function extractText(obj: any): string {
+    if (typeof obj === 'string') {
+      return obj;
+    }
+    
+    if (typeof obj === 'object' && obj !== null) {
+      let text = '';
+      
+      // Handle the _ property (text content)
+      if (obj._ && typeof obj._ === 'string') {
+        text += obj._;
+      }
+      
+      // Handle ref objects (references with text and links)
+      if (obj.ref) {
+        text += extractText(obj.ref);
+      }
+      
+      // Handle arrays of mixed content
+      if (Array.isArray(obj)) {
+        text += obj.map(item => extractText(item)).join('');
+      }
+      
+      return text;
+    }
+    
+    return String(obj);
   }
 
-  return String(docTitleRaw).trim()
+  const title = extractText(docTitleRaw);
+  
+  // Clean up extra whitespace and newlines
+  return title.replace(/\s+/g, ' ').trim();
 }
 
 export async function parseTitleFromXmlString(xml: string): Promise<string> {
-  const parsedXmlData = await parseStringPromise(xml, { explicitArray: false })
-  const resultNode = parsedXmlData?.akomaNtoso
-  if (!resultNode) {
-    throw new Error('Result node not found in XML')
+  try {
+    // Use DOM parser to preserve document order
+    return parseTitleFromXMLDOM(xml);
+  } catch (domError) {
+    // Fallback to xml2js parser
+    console.warn('DOM parsing failed, falling back to xml2js:', domError);
+    const parsedXmlData = await parseStringPromise(xml, { explicitArray: false })
+    const resultNode = parsedXmlData?.akomaNtoso
+    if (!resultNode) {
+      throw new Error('Result node not found in XML')
+    }
+    return parseTitleFromXmlObject(resultNode)
   }
-  return parseTitleFromXmlObject(resultNode)
 }
 
 async function parseImagesfromXML(result: AxiosResponse<unknown>): Promise<string[]> {
