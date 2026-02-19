@@ -18,7 +18,7 @@ import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
 import { printSyncSummary } from "./util/syncResults.js";
 import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, SyncResult } from './search.js';
-import { query } from './db/db.js';
+import { query, pool } from './db/db.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -269,7 +269,6 @@ app.get('/api/status/latest', verifyAdminToken, async (req: express.Request, res
   }
 });
 
-// Return recent application logs (from in-memory buffer)
 app.get('/api/logs', (req: express.Request, res: express.Response): void => {
   const limitParam = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
   const logs = getRecentLogs(limitParam);
@@ -449,6 +448,49 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
     console.error('[REBUILD] Rebuild endpoint error:', error);
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to start typesense rebuild' });
+  }
+});
+
+app.get('/api/admin/check-title-issues', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const client = await pool.connect();
+    
+    const yearQuery = await client.query(`
+      SELECT 
+        year,
+        COUNT(*) as potentially_wrong_count
+      FROM statutes
+      WHERE 
+        (
+          (title LIKE '%§:n' OR title LIKE '%§:n %')
+          AND (title LIKE '%momentissa%' OR title LIKE '%kohdassa%' OR title LIKE '%tarkoitetuista%')
+        )
+      GROUP BY year
+      HAVING COUNT(*) > 0
+      ORDER BY year DESC
+    `);
+    
+    const exampleQuery = await client.query(`
+      SELECT year, number, language, title
+      FROM statutes
+      WHERE 
+        (title LIKE '%§:n' OR title LIKE '%§:n %')
+        AND (title LIKE '%momentissa%' OR title LIKE '%kohdassa%' OR title LIKE '%tarkoitetuista%')
+      ORDER BY year DESC, number
+      LIMIT 10
+    `);
+    
+    client.release();
+    
+    res.status(200).json({
+      yearsWithIssues: yearQuery.rows,
+      exampleStatutes: exampleQuery.rows,
+      totalYears: yearQuery.rows.length
+    });
+  } catch (error) {
+    console.error('Check title issues endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to check title issues' });
   }
 });
 
