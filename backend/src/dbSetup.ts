@@ -1,9 +1,9 @@
 import { setPool, dbIsReady, fillDb, createTables, dbIsUpToDate, setupTestDatabase, addStatusRow, clearStatusRows } from "./db/db.js";
-import { stopFinlexLimiterLogging, startFinlexLimiterLogging } from "./db/load.js";
+import { stopFinlexLimiterLogging } from "./db/load.js";
 import * as Sentry from '@sentry/node';
 import './util/config.js';
 import { exit } from 'process';
-import { syncStatutes, deleteCollection, syncJudgments } from "./search.js";
+import { syncStatutes, deleteCollection, syncJudgments, SyncResult } from "./search.js";
 import { yearFrom, yearTo } from "./util/config.js";
 
 setPool(process.env.PG_URI ?? '');
@@ -41,11 +41,80 @@ async function initDatabase(startYear?: number) {
   }
 }
 
+function printSyncSummary(results: SyncResult[]) {
+  console.log('\n' + '='.repeat(80));
+  console.log('TYPESENSE INDEXING SUMMARY');
+  console.log('='.repeat(80));
+  
+  let totalProcessed = 0;
+  let totalSuccess = 0;
+  let totalFailures = 0;
+  let hasAnyFailures = false;
+
+  // Group by type
+  const statuteResults = results.filter(r => r.type === 'statutes');
+  const judgmentResults = results.filter(r => r.type === 'judgments');
+
+  // Print Statutes Summary
+  console.log('\n📚 STATUTES:');
+  console.log('-'.repeat(80));
+  statuteResults.forEach(result => {
+    const status = result.failureCount === 0 ? '✓' : '⚠️';
+    const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
+    console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
+    console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
+    
+    totalProcessed += result.totalProcessed;
+    totalSuccess += result.successCount;
+    totalFailures += result.failureCount;
+    
+    if (result.failureCount > 0) {
+      hasAnyFailures = true;
+    }
+  });
+
+  // Print Judgments Summary
+  console.log('\n⚖️  JUDGMENTS:');
+  console.log('-'.repeat(80));
+  judgmentResults.forEach(result => {
+    const status = result.failureCount === 0 ? '✓' : '⚠️';
+    const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
+    console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
+    console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
+    
+    totalProcessed += result.totalProcessed;
+    totalSuccess += result.successCount;
+    totalFailures += result.failureCount;
+    
+    if (result.failureCount > 0) {
+      hasAnyFailures = true;
+    }
+  });
+
+  // Print Overall Summary
+  console.log('\n' + '='.repeat(80));
+  console.log('OVERALL TOTALS:');
+  console.log(`  Total Documents Processed: ${totalProcessed}`);
+  console.log(`  Successfully Indexed: ${totalSuccess}`);
+  console.log(`  Failed to Index: ${totalFailures}`);
+  
+  const successRate = totalProcessed > 0 ? ((totalSuccess / totalProcessed) * 100).toFixed(2) : '0.00';
+  console.log(`  Success Rate: ${successRate}%`);
+  
+  console.log('='.repeat(80));
+
+  if (hasAnyFailures) {
+    console.log('\n⚠️  WARNING: Some documents failed to index. Review the detailed logs above.');
+    console.log('Failed documents have been logged with full details for investigation.\n');
+  } else {
+    console.log('\n✓ ALL DOCUMENTS SUCCESSFULLY INDEXED!\n');
+  }
+}
+
 export const runSetup = async (startYear?: number) => {
   const setupStartTime = Date.now();
-  
-  startFinlexLimiterLogging();
-  
+  const syncResults: SyncResult[] = [];
+
   try {
     if (process.env.NODE_ENV === 'test') {
       console.log('[SETUP] Running in test mode...');
@@ -68,33 +137,41 @@ export const runSetup = async (startYear?: number) => {
       
       const step3Start = Date.now();
       console.log('[SETUP] Step 3: Sync statutes to Typesense...');
-      await syncStatutes('fin');
-      await syncStatutes('swe');
+      const statuteFinResult = await syncStatutes('fin');
+      syncResults.push(statuteFinResult);
+      const statuteSweResult = await syncStatutes('swe');
+      syncResults.push(statuteSweResult);
       console.log(`[SETUP] Step 3 completed in ${Date.now() - step3Start}ms`);
       
       const step4Start = Date.now();
       console.log('[SETUP] Step 4: Sync judgments to Typesense...');
-      await syncJudgments('fin');
-      await syncJudgments('swe');
+      const judgmentFinResult = await syncJudgments('fin');
+      syncResults.push(judgmentFinResult);
+      const judgmentSweResult = await syncJudgments('swe');
+      syncResults.push(judgmentSweResult);
       console.log(`[SETUP] Step 4 completed in ${Date.now() - step4Start}ms`);
 
       const step5Start = Date.now();
       console.log('[SETUP] Step 5: Write completion status...');
       const from = startYear ?? yearFrom();
       const to = yearTo();
-      await addStatusRow({ message: 'updated', from, to, timestamp: new Date().toISOString() }, false);
+      await addStatusRow({ message: 'updated', from, to }, false);
       console.log(`[SETUP] Step 5 completed in ${Date.now() - step5Start}ms`);
+
+      // Print comprehensive summary
+      printSyncSummary(syncResults);
     }
-    const totalDuration = Date.now() - setupStartTime;
-    const minutes = Math.floor(totalDuration / 60000);
-    const seconds = Math.floor((totalDuration % 60000) / 1000);
-    console.log(`[SETUP] Database setup completed in ${minutes}m ${seconds}s (${totalDuration}ms)`);
+
+    const totalTime = Date.now() - setupStartTime;
+    console.log(`[SETUP] Total setup time: ${totalTime}ms (${(totalTime / 1000 / 60).toFixed(2)} minutes)`);
+    
+    if (process.env.NODE_ENV !== 'test') {
+      stopFinlexLimiterLogging();
+      exit(0);
+    }
   } catch (error) {
-    const errorDuration = Date.now() - setupStartTime;
+    console.error('[SETUP] Setup failed:', error);
     Sentry.captureException(error);
-    console.error(`[SETUP] Setup failed after ${errorDuration}ms:`, error);
-    throw error;
-  } finally {
-    stopFinlexLimiterLogging();
+    exit(1);
   }
-}
+};

@@ -16,7 +16,8 @@ import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment
 import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
-import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid } from './search.js';
+import { printSyncSummary } from "./util/syncResults.js";
+import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, SyncResult } from './search.js';
 import { query } from './db/db.js';
 
 const app = express()
@@ -381,6 +382,8 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
   try {
     res.status(200).json({ status: 'started', message: 'Typesense rebuild started in background' });
     setImmediate(async () => {
+      const syncResults: SyncResult[] = [];
+      
       try {
         console.info('Typesense rebuild started');
         await addStatusRow({ action: 'typesense_rebuild_start', startedAt: new Date().toISOString() }, true);
@@ -406,11 +409,19 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
         const statuteBounds = await getYearBounds('statutes');
         const judgmentBounds = await getYearBounds('judgments');
 
-        await syncStatutes('fin', statuteBounds ?? undefined);
-        await syncStatutes('swe', statuteBounds ?? undefined);
-        await syncJudgments('fin', judgmentBounds ?? undefined);
-        await syncJudgments('swe', judgmentBounds ?? undefined);
+        const statuteFinResult = await syncStatutes('fin', statuteBounds ?? undefined);
+        syncResults.push(statuteFinResult);
+        const statuteSweResult = await syncStatutes('swe', statuteBounds ?? undefined);
+        syncResults.push(statuteSweResult);
+        const judgmentFinResult = await syncJudgments('fin', judgmentBounds ?? undefined);
+        syncResults.push(judgmentFinResult);
+        const judgmentSweResult = await syncJudgments('swe', judgmentBounds ?? undefined);
+        syncResults.push(judgmentSweResult);
+        
         console.log('Typesense collections rebuilt');
+
+        // Print summary
+        printSyncSummary(syncResults);
 
         await addStatusRow({ action: 'typesense_rebuild_complete', completedAt: new Date().toISOString() }, false);
         console.info('Typesense rebuild completed');

@@ -33,6 +33,22 @@ const tsClient = new Typesense.Client({
   connectionTimeoutSeconds: 30
 });
 
+export interface SyncResult {
+  type: 'statutes' | 'judgments';
+  language: string;
+  totalProcessed: number;
+  successCount: number;
+  failureCount: number;
+  failures: Array<{
+    id: string;
+    year: number;
+    number: string;
+    title?: string;
+    level?: string;
+    error: string;
+  }>;
+}
+
 function flattenHeadings(headings: Heading[]) {
   const out: string[] = [];
   function recurse(arr: Heading[]) {
@@ -203,7 +219,7 @@ async function upsertWithRetry(collectionName: string, document: Record<string, 
 }
 
 
-export async function syncStatutes(lang: string, range?: { startYear?: number; endYear?: number }) {
+export async function syncStatutes(lang: string, range?: { startYear?: number; endYear?: number }): Promise<SyncResult> {
   const collectionName = await ensureStatuteCollection(lang);
   const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
   console.log(`Indexing: ${lang} -> ${collectionName}`);
@@ -218,6 +234,8 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
     title: string;
     error: string;
   }> = [];
+
+  let totalProcessed = 0;
 
   for (let year = startYear; year <= endYear; year++) {
     console.log('syncStatutes ' + lang + ' ' + year)
@@ -244,6 +262,7 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
 
     while (rows.length > 0) {
       const row = rows.pop()
+      totalProcessed++;
 
       try {
         const parsed_xml = await parseStringPromise(row.content, { explicitArray: false })
@@ -292,9 +311,18 @@ export async function syncStatutes(lang: string, range?: { startYear?: number; e
   } else {
     console.log(`✓ Successfully indexed all statutes for language ${lang}`);
   }
+
+  return {
+    type: 'statutes',
+    language: lang,
+    totalProcessed,
+    successCount: totalProcessed - failedStatutes.length,
+    failureCount: failedStatutes.length,
+    failures: failedStatutes
+  };
 }
 
-export async function syncJudgments(lang: string, range?: { startYear?: number; endYear?: number }) {
+export async function syncJudgments(lang: string, range?: { startYear?: number; endYear?: number }): Promise<SyncResult> {
   const collectionName = await ensureJudgmentCollection(lang);
   const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe";
   console.log(`\n=== Indexing: ${lang} -> ${collectionName}`);
@@ -309,6 +337,8 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
     level: string;
     error: string;
   }> = [];
+
+  let totalProcessed = 0;
 
   for (let year = startYear; year <= endYear; year++) {
     const { rows } = await query(
@@ -332,6 +362,7 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
 
     while (rows.length > 0) {
       const row = rows.pop()
+      totalProcessed++;
 
       try {
         const headingTree: Heading[] = parseHtmlHeadings(row.content) ?? [];
@@ -375,6 +406,15 @@ export async function syncJudgments(lang: string, range?: { startYear?: number; 
   } else {
     console.log(`✓ Successfully indexed all judgments for language ${lang}`);
   }
+
+  return {
+    type: 'judgments',
+    language: lang,
+    totalProcessed,
+    successCount: totalProcessed - failedJudgments.length,
+    failureCount: failedJudgments.length,
+    failures: failedJudgments
+  };
 }
 
 export async function upsertStatuteByUuid(lang: string, statuteUuid: string): Promise<void> {
