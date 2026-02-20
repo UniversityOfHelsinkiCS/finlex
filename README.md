@@ -12,10 +12,13 @@ docker compose up
 ## To Do
 
 P1
-- Ainakin seuraavat lait eivät typesensessä:
+- Ainakin seuraavat lait eivät typesensessä oikein:
     - Laki rikosasioiden ja eräiden riita-asioiden sovittelusta
     - Laki riita-asioiden sovittelusta ja sovinnon vahvistamisesta yleisissä tuomioistuimissa
 - Normalisointi-endpoint ei tee siistiä jälkeä, pitäisi parantaa ja sitten ajaa koko tietokannalle
+- Asiasanahaku -> Asiasanat
+  - Ä on lajiteltu A:na
+  - Adoptio hukkunut ruotsinkieliselle puolelle
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
