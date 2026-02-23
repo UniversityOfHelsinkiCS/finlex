@@ -174,12 +174,12 @@ const ListDocumentPage = ({language, setLanguage, buttonetext, placeholdertext, 
           />
           {apisection === 'statute' && (
             <a href="/lainsaadanto/asiasanat" style={keywordLinkStyle}>
-              {language === 'fin' ? 'Asiasanahaku' : 'Ämnesordssökning'}
+              {language === 'fin' ? 'Asiasanat' : 'Ämnesords'}
             </a>
           )}
           {apisection === 'judgment' && (
             <a href="/oikeuskaytanto/asiasanat" style={keywordLinkStyle}>
-              {language === 'fin' ? 'Asiasanahaku' : 'Ämnesordssökning'}
+              {language === 'fin' ? 'Asiasanat' : 'Ämnesords'}
             </a>
           )}
           <div id="errorblock">

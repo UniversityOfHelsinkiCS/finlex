@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet'
 import TopMenu from './TopMenu'
 import type { KeysType, KeywordPageType } from '../types'
@@ -53,6 +53,18 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
     getKeywords(path)
   }, [path])
 
+
+  const sortedKeywords = useMemo(() => {
+    const collator = new Intl.Collator('fi', {
+      usage: 'sort',
+      sensitivity: 'base',
+      ignorePunctuation: true,
+      numeric: false
+    })
+
+    return [...keywords].sort((a, b) => collator.compare(a.keyword, b.keyword))
+  }, [keywords])
+
   function prepareLink(keyword_id: string) {
     return `${routeBasePath}/${encodeURIComponent(keyword_id)}`
   }
@@ -77,8 +89,8 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
       <div style={contentStyle} id="contentdiv">
         <div id="contentDiv" style={contentContainerStyle}>
           <h1>{title}</h1>
-          {Array.isArray(keywords) && keywords.map(keyword => {
-            const firstLetter = keyword.keyword.charAt(0).toUpperCase()
+          {Array.isArray(sortedKeywords) && sortedKeywords.map(keyword => {
+            const firstLetter = keyword.keyword.charAt(0).toLocaleUpperCase('fi')
             const letterChanged = firstLetter !== letter
             letter = firstLetter
             return (
