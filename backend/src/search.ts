@@ -120,6 +120,7 @@ async function ensureStatuteCollection(lang: string): Promise<string> {
       { name: "paragraphs", type: "string[]", locale: lang_short },
       { name: "has_content", type: "int32" },
     ],
+    token_separators: ["-"],
   };
 
   try {
@@ -150,8 +151,7 @@ async function ensureJudgmentCollection(lang: string): Promise<string> {
       { name: "keywords", type: "string[]", locale: lang_short },
       { name: "headings", type: "string[]", locale: lang_short },
       { name: "paragraphs", type: "string[]", locale: lang_short },
-      { name: "has_content", type: "int32" },
-    ],
+      { name: "has_content", type: "int32" }, ],
   };
 
   try {
@@ -524,11 +524,19 @@ export async function deleteCollection(name: string, lang: string) {
   }
 }
 
-
+function normalizeQuery(q: string): string {
+  return q
+    .toLowerCase()
+    .replace(/\p{Punctuation}+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 export async function searchStatutes(lang: string, queryStr: string): Promise<StatuteSearchResult[]> {
+  const normalizedQ = normalizeQuery(queryStr);
+
   const searchParameters: any = {
-    q: queryStr,
+    q: normalizedQ,
     query_by: "title,common_names,keywords,headings,year,number,paragraphs",
     query_by_weights: "50,49,48,20,15,10,1",
     prefix: "true",
@@ -547,10 +555,11 @@ export async function searchStatutes(lang: string, queryStr: string): Promise<St
   return searchResults.hits?.map((hit) => (hit.document as StatuteSearchResult)) || [];
 }
 
-
 export async function searchJudgments(lang: string, queryStr: string, level: string): Promise<JudgmentSearchResult[]> {
+  const normalizedQ = normalizeQuery(queryStr);
+
   const searchParameters: any = {
-    q: queryStr,
+    q: normalizedQ,
     query_by: "keywords,level,year,number,headings,paragraphs",
     query_by_weights: "60,50,49,48,10,1",
     prefix: "true",
@@ -560,6 +569,7 @@ export async function searchJudgments(lang: string, queryStr: string, level: str
     per_page: 20,
     include_fields: "year_num,number,level,has_content,keywords",
   };
+
   if (level !== "any") {
     searchParameters.filter_by = `level:0${localeLevel(level, lang)}`;
   }
@@ -572,6 +582,6 @@ export async function searchJudgments(lang: string, queryStr: string, level: str
   return searchResults.hits?.map((hit) => {
     const doc = hit.document as JudgmentSearchResult;
     doc.level = localeLevelInverse(doc.level);
-    return hit.document as JudgmentSearchResult
+    return doc;
   }) || [];
 }
