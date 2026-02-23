@@ -9,6 +9,10 @@ interface KeywordListBaseProps extends KeywordPageType {
   routeBasePath: string
 }
 
+type KeywordRow = KeysType & {
+  displayKeyword?: string
+}
+
 const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBaseProps) => {
   const [keywords, setKeywords] = useState<KeysType[]>([])
   const [lan, setLan] = useState<string>(() => localStorage.getItem('language') || language)
@@ -53,18 +57,6 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
     getKeywords(path)
   }, [path])
 
-
-  const sortedKeywords = useMemo(() => {
-    const collator = new Intl.Collator('fi', {
-      usage: 'sort',
-      sensitivity: 'base',
-      ignorePunctuation: true,
-      numeric: false
-    })
-
-    return [...keywords].sort((a, b) => collator.compare(a.keyword, b.keyword))
-  }, [keywords])
-
   function prepareLink(keyword_id: string) {
     return `${routeBasePath}/${encodeURIComponent(keyword_id)}`
   }
@@ -75,6 +67,41 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
     localStorage.setItem('language', currentValue)
     setKeywords([])
   }
+
+  const displayRows: KeywordRow[] = useMemo(() => {
+    const rows: KeywordRow[] = keywords.map(k => ({ ...k }))
+
+    // Special-case: in Finnish keyword list, show "lapseksiottaminen" also under A as
+    // "Adoptio / Lapseksiottaminen" (same link/keyword_id).
+    if (lan === 'fin') {
+      const target = rows.find(
+        r => r.keyword.trim().toLocaleLowerCase('fi') === 'lapseksiottaminen'
+      )
+
+      if (target) {
+        rows.push({
+          ...target,
+          displayKeyword: 'Adoptio / Lapseksiottaminen',
+          id: `${target.id}-alias-adoptio`
+        })
+      }
+    }
+
+    return rows
+  }, [keywords, lan])
+
+  const sortedRows = useMemo(() => {
+    const collator = new Intl.Collator('fi', {
+      usage: 'sort',
+      sensitivity: 'base',
+      ignorePunctuation: true,
+      numeric: false
+    })
+
+    const getLabel = (r: KeywordRow) => r.displayKeyword ?? r.keyword
+
+    return [...displayRows].sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
+  }, [displayRows])
 
   return (
     <>
@@ -89,15 +116,19 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
       <div style={contentStyle} id="contentdiv">
         <div id="contentDiv" style={contentContainerStyle}>
           <h1>{title}</h1>
-          {Array.isArray(sortedKeywords) && sortedKeywords.map(keyword => {
-            const firstLetter = keyword.keyword.charAt(0).toLocaleUpperCase('fi')
+          {Array.isArray(sortedRows) && sortedRows.map(row => {
+            const label = row.displayKeyword ?? row.keyword
+            const firstLetter = label.charAt(0).toLocaleUpperCase('fi')
             const letterChanged = firstLetter !== letter
             letter = firstLetter
+
             return (
-              <div key={`${keyword.id}-upper`}>
+              <div key={`${row.id}-upper`}>
                 {letterChanged && <h2>{firstLetter}</h2>}
-                <div key={keyword.id}>
-                  <a href={prepareLink(keyword.id)}>{keyword.keyword}</a>
+                <div key={row.id}>
+                  <a href={prepareLink(row.id.replace('-alias-adoptio', ''))}>
+                    {label}
+                  </a>
                 </div>
               </div>
             )
