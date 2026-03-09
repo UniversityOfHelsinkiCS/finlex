@@ -92,7 +92,6 @@ async function fetchWithBackoff<T = unknown>(url: string, config: any, opts?: { 
   }
 }
 
-
 function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docLanguage: string; docVersion: string | null } {
   try {
     const urlObj = new URL(url);
@@ -291,6 +290,39 @@ async function parseCommonNamesFromXML(result: AxiosResponse<unknown>): Promise<
   return names
 }
 
+/**
+ * Extract isInForce from the statute XML using fast-xml-parser.
+ *
+ * Returns:
+ * - true / false when finlex:isInForce/@value is present
+ * - null when the field is missing or can't be parsed
+ */
+async function parseIsInForceFromXml(xmlString: string): Promise<boolean | null> {
+  try {
+    const parser = new XMLParser({
+      ignoreAttributes: false,
+      attributeNamePrefix: '@_',
+      removeNSPrefix: true,
+    });
+
+    const parsed = parser.parse(xmlString);
+
+    const isInForceNode =
+      parsed?.AknXmlList?.Results?.akomaNtoso?.act?.meta?.proprietary?.isInForce ??
+      parsed?.akomaNtoso?.act?.meta?.proprietary?.isInForce ??
+      null;
+
+    const value = isInForceNode?.['@_value'];
+
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return null;
+  } catch (e) {
+    console.warn('Failed to parse isInForce from XML:', e);
+    return null;
+  }
+}
+
 async function parseKeywordsfromXML(result: AxiosResponse<unknown>): Promise<[string, string][]> {
   const keyword_list: [string, string][] = [];
 
@@ -473,10 +505,7 @@ function parseURLfromJudgmentID(judgmentID: string): string {
 }
 
 function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
-  // Simple heuristic language detection for Finnish vs Swedish
   const lowerText = text.toLowerCase();
-  
-  // Common Finnish words and patterns
   const finnishIndicators = [
     'että', 'jossa', 'jonka', 'kanssa', 'mukaan', 'joiden', 'jotka',
     'vuonna', 'vuoden', 'korkein oikeus', 'hovioikeus', 'käräjäoikeus',
@@ -486,8 +515,6 @@ function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
     'tämä', 'näin', 'sekä', 'myös', 'vain', 'kuin', 'ilman',
     'saada', 'tehdä', 'antaa', 'pitää', 'tulla', 'voida', 'käydä',
   ];
-  
-  // Common Swedish words and patterns
   const swedishIndicators = [
     'att', 'som', 'med', 'enligt', 'från', 'till', 'har', 'eller',
     'år', 'året', 'högsta domstolen', 'hovrätt', 'tingsrätt',
@@ -500,27 +527,14 @@ function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
   
   let finnishScore = 0;
   let swedishScore = 0;
-  
-  for (const indicator of finnishIndicators) {
-    if (lowerText.includes(indicator)) finnishScore++;
-  }
-  
-  for (const indicator of swedishIndicators) {
-    if (lowerText.includes(indicator)) swedishScore++;
-  }
-  
-  // Character patterns: å is Swedish-specific (strong signal)
+  for (const indicator of finnishIndicators) if (lowerText.includes(indicator)) finnishScore++;
+  for (const indicator of swedishIndicators) if (lowerText.includes(indicator)) swedishScore++;
   const aRingCount = (text.match(/å/gi) || []).length;
   swedishScore += aRingCount * 3;
-  
-  // Finnish tends to have more double vowels
   const doubleVowels = text.match(/(aa|ee|ii|oo|uu|yy|ää|öö)/gi);
   if (doubleVowels && doubleVowels.length > 1) finnishScore += 2;
-  
-  // Default to unknown if score is too low to be confident
   const totalScore = finnishScore + swedishScore;
   if (totalScore < 2) return 'unknown';
-  
   if (finnishScore > swedishScore) return 'fin';
   if (swedishScore > finnishScore) return 'swe';
   return 'unknown';
@@ -529,16 +543,10 @@ function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
 function parseFlightStreamContent(html: string, lang?: 'fin' | 'swe'): string[] {
   const scriptRegex = /<script>self\.__next_f\.push\(\[1,(.*?)\]\)<\/script>/gs;
   const matches = Array.from(html.matchAll(scriptRegex));
-  
-  if (matches.length === 0) {
-    return [];
-  }
-  
+  if (matches.length === 0) return [];
   const combinedPayload = matches.map(m => m[1]).join('\n');
-  
   const highlightableRegex = /\\"className\\":\\"highlightable\\",\\"children\\":\\"((?:[^"\\]|\\.)*?)\\"[}\]]/g;
   const contentMatches = Array.from(combinedPayload.matchAll(highlightableRegex));
-  
   const fragments: string[] = [];
   for (const match of contentMatches) {
     let text = match[1]
@@ -547,49 +555,34 @@ function parseFlightStreamContent(html: string, lang?: 'fin' | 'swe'): string[] 
       .replace(/\\n/g, '\n')
       .replace(/\\r/g, '')
       .trim();
-    
-    if (text && 
+    if (text &&
         text.length > 3 &&
         !text.match(/^[a-f0-9]+:/) &&
         !text.match(/^\$/) && 
         !text.includes('$undefined') &&
         !text.includes('"className"') &&
         !text.includes('"style"')) {
-      
-      // If language filtering is requested, detect the language of this paragraph
       if (lang) {
         const detectedLang = detectLanguage(text);
-        // Only include paragraphs that definitively match the target language
-        if (detectedLang !== lang) {
-          continue; // Skip paragraphs that are wrong language OR unknown
-        }
+        if (detectedLang !== lang) continue;
       }
-      
       fragments.push(text);
     }
   }
-  
   return fragments;
 }
 
 function extractLangSectionFromDom(inputHTML: string, lang: 'fin' | 'swe'): { content: string; is_empty: boolean } | null {
   const dom = new JSDOM(inputHTML);
   const doc = dom.window.document;
-
-  // Finlex uses two-letter language tags in the rendered Akomantoso section
   const langCode = lang === 'fin' ? 'fi' : 'sv';
   const section =
     doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode}"]`) ||
     doc.querySelector(`section[class*="akomaNtoso"][lang="${langCode.toUpperCase()}"]`) ||
     doc.querySelector('section[class*="akomaNtoso"]');
-
-  if (!section) {
-    return null;
-  }
-
+  if (!section) return null;
   const paragraphs = section.querySelectorAll('p');
   const is_empty = !Array.from(paragraphs).some(p => (p.textContent ?? '').trim() !== '');
-
   return { content: section.outerHTML, is_empty };
 }
 
@@ -600,39 +593,30 @@ async function parseAkomafromURL(inputURL: string, lang: string): Promise<{ cont
   const inputHTML = result.data as string;
   const keywords = parseKeywordsfromHTML(inputHTML, lang);
 
-  // Prefer DOM extraction scoped by the explicit lang attribute to avoid mixed-language payloads.
   const domSection = extractLangSectionFromDom(inputHTML, lang === 'fin' ? 'fin' : 'swe');
   if (domSection) {
     return { content: domSection.content, is_empty: domSection.is_empty, keywords };
   }
 
   const flightFragments = parseFlightStreamContent(inputHTML, lang === 'fin' ? 'fin' : 'swe');
-
   if (flightFragments.length > 0) {
     const paragraphs = flightFragments
       .map(text => `<p class="highlightable">${text}</p>`)
       .join('\n');
-
     const content = `<section class="styles_akomaNtoso__parsed">\n${paragraphs}\n</section>`;
     const is_empty = flightFragments.length === 0 || flightFragments.every(f => f.trim() === '');
-
     return { content, is_empty, keywords };
   }
 
-  // Fallback to DOM parsing for older pages
   const dom = new JSDOM(inputHTML);
   const doc = dom.window.document;
   const section = doc.querySelector('section[class*="akomaNtoso"]');
-
   let is_empty = true;
-
   if (section) {
     const paragraphs = section.querySelectorAll('p');
     is_empty = !Array.from(paragraphs).some(p => (p.textContent ?? '').trim() !== '');
   }
-
   const content = section ? section.outerHTML : '';
-
   return { content, is_empty, keywords };
 }
 
@@ -644,7 +628,6 @@ async function checkIsXMLEmpty(xmlString: string): Promise<boolean> {
   const parsed = parser.parse(xmlString);
 
   const body = parsed?.['akomaNtoso']?.['act']?.['body'];
-
   if (!body) return false;
 
   const container = body['hcontainer'];
@@ -656,7 +639,6 @@ async function checkIsXMLEmpty(xmlString: string): Promise<boolean> {
     return container?.['@_name'] === 'contentAbsent';
   }
 }
-
 
 const baseURL = 'https://opendata.finlex.fi/finlex/avoindata/v1';
 
@@ -715,12 +697,25 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
     }
   }
 
+  const xmlContent = result.data as string;
+  const isInForce = await parseIsInForceFromXml(xmlContent);
+
+  if (isInForce === false) {
+    const { docYear, docNumber, docLanguage, docVersion } = parseFinlexUrl(uri);
+    console.log(
+      `[statute-loader] skipped (isInForce=false): ` +
+      `${docYear}/${docNumber}/${docLanguage}@${docVersion ?? ''} ` +
+      `uri=${uri}`
+    );
+    return null;
+  }
+  // ------------------------------------------------------
+
   const docTitle = await parseTitlefromXML(result)
   const imageLinks = await parseImagesfromXML(result)
   const keywordList = await parseKeywordsfromXML(result)
   const commonNames = await parseCommonNamesFromXML(result)
 
-  const xmlContent = result.data as string;
   const is_empty = await checkIsXMLEmpty(xmlContent);
 
   const { docYear, docNumber, docLanguage, docVersion } = parseFinlexUrl(uri)
