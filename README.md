@@ -12,7 +12,6 @@ docker compose up
 ## To Do
 
 P1
-- Muutossäädökset lakipykälien otsikoihin (xml-parsimisen muutos)
 - Asiasanat lakidokumentteihin näkyviin
 - DB-päivitys tekee typesensen vain aloitusvuodesta
 
