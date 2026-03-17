@@ -117,13 +117,27 @@
     </div>
   </xsl:template>
 
-  <xsl:template match="akn:section">
-    <div class="section">
-      <h3 id="{@eId}"><xsl:value-of select="akn:num"/><xsl:text>  </xsl:text><xsl:value-of select="akn:heading"/></h3>
-      <xsl:apply-templates
-         select="*[not(self::akn:num or self::akn:heading)]"/>
-    </div>
-  </xsl:template>
+<xsl:template match="akn:section">
+  <div class="section">
+    <h3 id="{@eId}">
+      <xsl:value-of select="akn:num"/>
+      <xsl:text>  </xsl:text>
+      <xsl:value-of select="akn:heading"/>
+
+      <!-- Append amending-act label as plain text, if present -->
+      <xsl:variable name="ovl"
+                    select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
+      <xsl:if test="$ovl">
+        <xsl:text> (</xsl:text>
+        <xsl:value-of select="$ovl"/>
+        <xsl:text>)</xsl:text>
+      </xsl:if>
+    </h3>
+
+    <xsl:apply-templates
+       select="*[not(self::akn:num or self::akn:heading)]"/>
+  </div>
+</xsl:template>
 
   <xsl:template match="akn:subsection">
     <div class="subsection">
