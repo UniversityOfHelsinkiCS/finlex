@@ -317,8 +317,7 @@ async function parseIsInForceFromXml(xmlString: string): Promise<boolean | null>
     if (value === 'true') return true;
     if (value === 'false') return false;
     return null;
-  } catch (e) {
-    console.warn('Failed to parse isInForce from XML:', e);
+  } catch (e) {    console.warn('Failed to parse isInForce from XML:', e);
     return null;
   }
 }
@@ -700,16 +699,6 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
   const xmlContent = result.data as string;
   const isInForce = await parseIsInForceFromXml(xmlContent);
 
-  if (isInForce === false) {
-    const { docYear, docNumber, docLanguage, docVersion } = parseFinlexUrl(uri);
-    console.log(
-      `[statute-loader] skipped (isInForce=false): ` +
-      `${docYear}/${docNumber}/${docLanguage}@${docVersion ?? ''} ` +
-      `uri=${uri}`
-    );
-    return null;
-  }
-  // ------------------------------------------------------
 
   const docTitle = await parseTitlefromXML(result)
   const imageLinks = await parseImagesfromXML(result)
