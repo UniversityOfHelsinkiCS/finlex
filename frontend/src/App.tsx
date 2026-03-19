@@ -15,6 +15,7 @@ import { ThreeDot } from 'react-loading-indicators'
 import axios from 'axios'
 import YearDocumentList from './components/YearDocumentList'
 import YearsPage from './components/YearsPage'
+import FooterDisclaimer from './components/FooterDisclaimer'
 
 
 const App = () => {
@@ -93,7 +94,7 @@ const App = () => {
   if (appReady || isExemptRoute()) {
     return (
       <Router>
-        <div>
+        <div style={!isExemptRoute() ? { paddingBottom: '60px' } : undefined}>
 
           <Helmet>
             <title>Finlex Lite</title>
@@ -136,6 +137,7 @@ const App = () => {
             <Route key="admin" path="/summary" element={<YearsPage />} />
             <Route key="admin" path="/admin" element={<AdminPage language={language} />} />
           </Routes>
+          {!isExemptRoute() && <FooterDisclaimer language={language} />}
         </div>
       </Router>
     )
