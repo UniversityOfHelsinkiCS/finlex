@@ -111,7 +111,16 @@
   <!-- hierarchy -->
   <xsl:template match="akn:chapter">
     <div class="chapter">
-      <h2 id="{@eId}"><xsl:value-of select="akn:num"/><br/><xsl:value-of select="akn:heading"/></h2>
+      <h2 id="{@eId}"><xsl:value-of select="akn:num"/><br/><xsl:value-of select="akn:heading"/>
+
+        <xsl:variable name="ovl"
+                      select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
+        <xsl:if test="$ovl">
+          <xsl:text> (</xsl:text>
+          <xsl:value-of select="$ovl"/>
+          <xsl:text>)</xsl:text>
+        </xsl:if>
+      </h2>
       <xsl:apply-templates
          select="*[not(self::akn:num or self::akn:heading)]"/>
     </div>
@@ -124,7 +133,6 @@
       <xsl:text>  </xsl:text>
       <xsl:value-of select="akn:heading"/>
 
-      <!-- Append amending-act label as plain text, if present -->
       <xsl:variable name="ovl"
                     select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
       <xsl:if test="$ovl">
@@ -141,7 +149,24 @@
 
   <xsl:template match="akn:subsection">
     <div class="subsection">
-      <xsl:apply-templates/>
+      <xsl:if test="akn:heading or akn:num">
+        <h4 id="{@eId}">
+          <xsl:value-of select="akn:num"/>
+          <xsl:text>  </xsl:text>
+          <xsl:value-of select="akn:heading"/>
+
+          <xsl:variable name="ovl"
+                        select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
+          <xsl:if test="$ovl">
+            <xsl:text> (</xsl:text>
+            <xsl:value-of select="$ovl"/>
+            <xsl:text>)</xsl:text>
+          </xsl:if>
+        </h4>
+      </xsl:if>
+
+      <xsl:apply-templates
+        select="*[not(self::akn:num or self::akn:heading)]"/>
     </div>
   </xsl:template>
 
