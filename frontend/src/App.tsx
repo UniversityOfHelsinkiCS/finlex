@@ -97,7 +97,7 @@ const App = () => {
         <div style={!isExemptRoute() ? { paddingBottom: '60px' } : undefined}>
 
           <Helmet>
-            <title>Finlex Lite</title>
+            <title>Tenttilex</title>
           </Helmet>
           <Routes>
             <Route key="listpage" path="/lainsaadanto/" element={<ListDocumentPage language={language} setLanguage={setLanguage} buttonetext={buttontext}

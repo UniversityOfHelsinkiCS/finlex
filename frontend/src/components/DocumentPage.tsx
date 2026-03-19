@@ -13,7 +13,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   const docyear: string = useParams().year ?? ""
   const doclevel: string = useParams().level ?? ""
 
-  const [docTitle, setDocTitle] = useState<string>("Finlex Lite")
+  const [docTitle, setDocTitle] = useState<string>("Tenttilex")
   const [law, setLaw] = useState<string>('')
   const [headings, setHeadings] = useState<Headings[]>([])
   const [lan, setLan] = useState<string>(language)

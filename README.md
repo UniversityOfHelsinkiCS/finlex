@@ -12,6 +12,7 @@ docker compose up
 ## To Do
 
 P1
+- Dokumentti ja hakupalstan levennys
 - Asiasanat lakidokumentteihin näkyviin
 - DB-päivitys tekee typesensen vain aloitusvuodesta
 
