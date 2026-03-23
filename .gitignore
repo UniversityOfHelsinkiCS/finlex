@@ -1,6 +1,7 @@
 *.log
 configmap.yaml
 .env
+bin/*
 
 # Playwright
 node_modules/
