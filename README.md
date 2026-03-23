@@ -11,9 +11,6 @@ docker compose up
 
 ## To Do
 
-P1
-- Asiasanat lakidokumentteihin näkyviin
-- DB-päivitys tekee typesensen vain aloitusvuodesta
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
