@@ -4,7 +4,7 @@ interface FooterDisclaimerProps {
   language?: string
 }
 
-const FooterDisclaimer = (_props: FooterDisclaimerProps) => {
+const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
   const style: React.CSSProperties = {
     position: 'fixed' as const,
     bottom: 0,
@@ -18,7 +18,9 @@ const FooterDisclaimer = (_props: FooterDisclaimerProps) => {
     borderTop: '1px solid #e0e0e0',
     zIndex: 1000,
   }
-  const text = 'Tämä sivusto on tarkoitettu käytettäväksi ainoastaan Helsingin yliopiston oikeustieteellisen tiedekunnan tenttien yhteydessä. Sivuston muunlainen käyttö on kielletty.'
+  const text = language === 'swe'
+    ? 'Denna webbplats är avsedd att användas enbart i samband med tentamina vid Juridiska fakulteten vid Helsingfors universitet. Annan användning av webbplatsen är förbjuden.'
+    : 'Tämä sivusto on tarkoitettu käytettäväksi ainoastaan Helsingin yliopiston oikeustieteellisen tiedekunnan tenttien yhteydessä. Sivuston muunlainen käyttö on kielletty.'
 
   return (
     <footer style={style} id="footer-disclaimer">

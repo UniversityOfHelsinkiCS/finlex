@@ -63,8 +63,8 @@ const App = () => {
 
   const isExemptRoute = () => {
     const path = window.location.pathname
-    return path === "/admin" || 
-           path === "/summary" 
+    return path === "/admin" ||
+           path === "/summary"
   }
 
   const checkDbStatus = useCallback(async () => {

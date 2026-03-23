@@ -46,3 +46,15 @@ export async function getStatuteByNumberYear(number: string, year: number, langu
   const result = await query(sql, [number, year, language]);
   return result.rows[0]?.content || null;
 }
+
+export async function getStatuteKeywordsByNumberYear(number: string, year: number, language: string): Promise<{ id: string, keyword: string }[]> {
+  const sql = `
+    SELECT ks.id, ks.keyword
+    FROM keywords_statute ks
+    JOIN statutes s ON s.uuid = ks.statute_uuid
+    WHERE s.number = $1 AND s.year = $2 AND s.language = $3
+    ORDER BY ks.keyword ASC
+  `;
+  const result = await query(sql, [number, year, language]);
+  return result.rows.map((row) => ({ id: row.id, keyword: row.keyword }));
+}

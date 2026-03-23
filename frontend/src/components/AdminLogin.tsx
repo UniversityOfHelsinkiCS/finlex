@@ -21,7 +21,7 @@ const AdminLogin = ({ language, onLoginSuccess }: AdminLoginProps) => {
       const response = await axios.post('/api/admin/login', { password })
       localStorage.setItem('adminToken', response.data.token)
       onLoginSuccess()
-    } catch (err) {
+    } catch {
       setError(language === 'fin' ? 'Väärä salasana' : 'Felaktigt lösenord')
       setPassword('')
     } finally {
@@ -118,34 +118,34 @@ const AdminLogin = ({ language, onLoginSuccess }: AdminLoginProps) => {
         <TopMenu language={language} handleSelect={handleSelect} />
       </div>
       <div style={{ marginTop: '60px', width: '100%', display: 'flex', justifyContent: 'center' }}>
-      <form style={formStyle} onSubmit={handleSubmit}>
-        <h1 style={titleStyle}>
-          {language === 'fin' ? 'Ylläpito' : 'Administration'}
-        </h1>
+        <form style={formStyle} onSubmit={handleSubmit}>
+          <h1 style={titleStyle}>
+            {language === 'fin' ? 'Ylläpito' : 'Administration'}
+          </h1>
 
-        {error && <div style={errorStyle}>{error}</div>}
+          {error && <div style={errorStyle}>{error}</div>}
 
-        <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
-          {language === 'fin' ? 'Salasana' : 'Lösenord'}
-        </label>
+          <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>
+            {language === 'fin' ? 'Salasana' : 'Lösenord'}
+          </label>
 
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder={language === 'fin' ? 'Kirjoita salasana' : 'Ange lösenord'}
-          style={inputStyle}
-          disabled={isLoading}
-          autoFocus
-        />
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={language === 'fin' ? 'Kirjoita salasana' : 'Ange lösenord'}
+            style={inputStyle}
+            disabled={isLoading}
+            autoFocus
+          />
 
-        <button type="submit" style={buttonStyle} disabled={isLoading}>
-          {isLoading
-            ? (language === 'fin' ? 'Tarkistetaan...' : 'Verifierar...')
-            : (language === 'fin' ? 'Kirjaudu sisään' : 'Logga in')
-          }
-        </button>
-      </form>
+          <button type="submit" style={buttonStyle} disabled={isLoading}>
+            {isLoading
+              ? (language === 'fin' ? 'Tarkistetaan...' : 'Verifierar...')
+              : (language === 'fin' ? 'Kirjaudu sisään' : 'Logga in')
+            }
+          </button>
+        </form>
       </div>
     </div>
   )

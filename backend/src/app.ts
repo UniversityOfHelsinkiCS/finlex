@@ -12,7 +12,7 @@ import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
-import { buildFinlexUrl, buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
+import { buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
 import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
@@ -72,7 +72,7 @@ const verifyAdminToken = (req: express.Request, res: express.Response, next: exp
 
 app.post('/api/admin/login', (req: express.Request, res: express.Response): void => {
   const { password } = req.body;
-  
+
   if (!password) {
     res.status(400).json({ error: 'Password required' });
     return;
@@ -123,8 +123,8 @@ app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: expre
     setImmediate(async () => {
       try {
         console.info('Database setup started');
-        const body: any = req.body || {}
-        const startYear = body.startYear !== undefined ? parseInt(body.startYear as any, 10) : undefined
+        const body = (req.body ?? {}) as { startYear?: unknown }
+        const startYear = body.startYear !== undefined ? parseInt(String(body.startYear), 10) : undefined
         await runSetup(startYear);
         console.info('Database setup completed');
       } catch (error) {
@@ -133,11 +133,11 @@ app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: expre
         const errorMessage = error instanceof Error ? error.message : String(error);
         try {
           await addStatusRow(
-            { 
-              message: 'setup_failed', 
+            {
+              message: 'setup_failed',
               error: errorMessage,
               timestamp: new Date().toISOString()
-            }, 
+            },
             false
           );
           console.log('[SETUP] Wrote error status to database');
@@ -339,15 +339,15 @@ app.post('/api/statute/normalize-titles/:year', verifyAdminToken, async (req: ex
     console.log(`[normalize-titles] Starting normalization for year ${yearNum}`);
     const updatedCount = await normalizeStatuteTitlesByYear(yearNum);
     console.log(`[normalize-titles] Normalized ${updatedCount} statutes, now syncing to Typesense...`);
-    
+
     await syncStatutes('fin', { startYear: yearNum, endYear: yearNum });
     await syncStatutes('swe', { startYear: yearNum, endYear: yearNum });
-    
+
     console.log(`[normalize-titles] Successfully completed normalization and sync for year ${yearNum}`);
-    res.status(200).json({ 
-      message: 'Statute titles normalized and synced', 
-      year: yearNum, 
-      updatedCount 
+    res.status(200).json({
+      message: 'Statute titles normalized and synced',
+      year: yearNum,
+      updatedCount
     });
   } catch (error) {
     console.error('Normalize statute titles endpoint error:', error);
@@ -382,7 +382,7 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
     res.status(200).json({ status: 'started', message: 'Typesense rebuild started in background' });
     setImmediate(async () => {
       const syncResults: SyncResult[] = [];
-      
+
       try {
         console.info('Typesense rebuild started');
         await addStatusRow({ action: 'typesense_rebuild_start', startedAt: new Date().toISOString() }, true);
@@ -416,7 +416,7 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
         syncResults.push(judgmentFinResult);
         const judgmentSweResult = await syncJudgments('swe', judgmentBounds ?? undefined);
         syncResults.push(judgmentSweResult);
-        
+
         console.log('Typesense collections rebuilt');
 
         // Print summary
@@ -430,11 +430,11 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
         const errorMessage = error instanceof Error ? error.message : String(error);
         try {
           await addStatusRow(
-            { 
-              message: 'typesense_rebuild_failed', 
+            {
+              message: 'typesense_rebuild_failed',
               error: errorMessage,
               timestamp: new Date().toISOString()
-            }, 
+            },
             false
           );
           console.log('[REBUILD] Wrote error status to database');
@@ -454,7 +454,7 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
 app.get('/api/admin/check-title-issues', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const client = await pool.connect();
-    
+
     const yearQuery = await client.query(`
       SELECT 
         year,
@@ -469,7 +469,7 @@ app.get('/api/admin/check-title-issues', verifyAdminToken, async (req: express.R
       HAVING COUNT(*) > 0
       ORDER BY year DESC
     `);
-    
+
     const exampleQuery = await client.query(`
       SELECT year, number, language, title
       FROM statutes
@@ -479,9 +479,9 @@ app.get('/api/admin/check-title-issues', verifyAdminToken, async (req: express.R
       ORDER BY year DESC, number
       LIMIT 10
     `);
-    
+
     client.release();
-    
+
     res.status(200).json({
       yearsWithIssues: yearQuery.rows,
       exampleStatutes: exampleQuery.rows,

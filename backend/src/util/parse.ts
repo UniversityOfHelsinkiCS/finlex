@@ -43,7 +43,7 @@ export function parseXmlHeadings(parsed_xml : hContainer) {
   const containers = toArray(parsed_xml?.akomaNtoso?.act?.body?.hcontainer || [])
   if (containers.length === 0) return []
 
-  const buildChapterHeading = (chap: any): Heading => {
+  const buildChapterHeading = (chap: Chapter): Heading => {
     let chap_name
     if (typeof chap.heading === 'object') {
       chap_name = chap.heading._.trim()

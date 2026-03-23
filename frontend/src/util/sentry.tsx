@@ -10,19 +10,3 @@ export const initSentry = () => {
     sendDefaultPii: true,
   });
 }
-// Add this button component to your app to test Sentry's error tracking
-export const ErrorButton = () => {
-  return (
-    <button
-      onClick={() => {
-        // Send a log before throwing the error
-        Sentry.logger.info('User triggered test error', {
-          action: 'test_error_button_click',
-        });
-        Sentry.captureException(new Error('This is your first error!'));
-      }}
-    >
-      Break the world
-    </button>
-  );
-}

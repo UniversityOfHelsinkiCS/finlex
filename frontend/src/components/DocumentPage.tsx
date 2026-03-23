@@ -1,11 +1,15 @@
 import axios from 'axios'
 import type { Headings, DocumentPageProps } from "../types"
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import TableOfContent from './TableOfContent'
 import { useParams } from 'react-router-dom'
 import {Helmet} from "react-helmet";
 import TopMenu from './TopMenu'
 
+interface DocumentKeyword {
+  id: string,
+  keyword: string
+}
 
 const DocumentPage = ({language, apipath} : DocumentPageProps) => {
 
@@ -16,6 +20,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   const [docTitle, setDocTitle] = useState<string>("Tenttilex")
   const [law, setLaw] = useState<string>('')
   const [headings, setHeadings] = useState<Headings[]>([])
+  const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
 
@@ -89,7 +94,95 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     }
   }
 
-  const buildPaths = (currentLanguage: string) => {
+  const getKeywordBaseUrl = () => {
+    if (apipath === 'statute') {
+      return '/lainsaadanto/asiasanat/'
+    }
+    return '/oikeuskaytanto/asiasanat/'
+  }
+
+  const injectKeywordsIntoLawHtml = (html: string): string => {
+    if (!html || keywords.length === 0) return html
+
+    try {
+      const parser = new DOMParser()
+      const parsed = parser.parseFromString(`<div id="law-root">${html}</div>`, 'text/html')
+      const root = parsed.getElementById('law-root')
+      if (!root) return html
+
+      // Avoid duplicate insertion if the content is re-rendered.
+      if (root.querySelector('[data-finlex-keywords="true"]')) {
+        return root.innerHTML
+      }
+
+      const headings = Array.from(root.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+      const metadataHeading = headings.find((heading) => {
+        const text = (heading.textContent || '').trim().toLowerCase()
+        return text === 'metatiedot' || text === 'metadata'
+      })
+
+      const headingTag = metadataHeading ? metadataHeading.tagName.toLowerCase() : 'h3'
+      const sectionHeading = parsed.createElement(headingTag)
+      sectionHeading.setAttribute('data-finlex-keywords', 'true')
+      sectionHeading.textContent = lan === 'fin' ? 'Asiasanat' : 'Ämnesord'
+
+      const linksParagraph = parsed.createElement('p')
+      linksParagraph.setAttribute('data-finlex-keywords', 'true')
+
+      keywords.forEach((keyword, index) => {
+        const link = parsed.createElement('a')
+        link.href = `${getKeywordBaseUrl()}${encodeURIComponent(keyword.id)}`
+        link.textContent = keyword.keyword
+        linksParagraph.appendChild(link)
+
+        if (index < keywords.length - 1) {
+          linksParagraph.appendChild(parsed.createTextNode(', '))
+        }
+      })
+
+      const section = parsed.createElement('div')
+      section.setAttribute('data-finlex-keywords', 'true')
+      section.appendChild(sectionHeading)
+      section.appendChild(linksParagraph)
+
+      if (metadataHeading) {
+        let insertBefore: Element | null = null
+        let nextNode = metadataHeading.nextElementSibling
+
+        while (nextNode) {
+          const tag = nextNode.tagName.toLowerCase()
+          if (/^h[1-6]$/.test(tag)) {
+            insertBefore = nextNode
+            break
+          }
+          nextNode = nextNode.nextElementSibling
+        }
+
+        if (insertBefore) {
+          root.insertBefore(section, insertBefore)
+        } else {
+          // If there is no following heading, place keywords right after metadata content.
+          const metadataContainer = metadataHeading.closest('section')
+          if (metadataContainer && metadataContainer.parentElement) {
+            metadataContainer.insertAdjacentElement('afterend', section)
+          } else if (metadataHeading.nextElementSibling) {
+            metadataHeading.nextElementSibling.insertAdjacentElement('afterend', section)
+          } else {
+            metadataHeading.insertAdjacentElement('afterend', section)
+          }
+        }
+      } else {
+        root.insertBefore(section, root.firstChild)
+      }
+
+      return root.innerHTML
+    } catch (error) {
+      console.error(error)
+      return html
+    }
+  }
+
+  const buildPaths = useCallback((currentLanguage: string) => {
     let docPath = `/api/${apipath}/id/${docyear}/${docnumber}/${currentLanguage}`
     if (apipath !== 'statute') {
       docPath = `${docPath}/${doclevel}`
@@ -98,12 +191,16 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     if (apipath !== 'statute') {
       structurePath = `${structurePath}/${doclevel}`
     }
-    return { docPath, structurePath }
-  }
+    let keywordsPath = `/api/${apipath}/keywords/id/${docyear}/${docnumber}/${currentLanguage}`
+    if (apipath !== 'statute') {
+      keywordsPath = `${keywordsPath}/${doclevel}`
+    }
+    return { docPath, structurePath, keywordsPath }
+  }, [apipath, docyear, docnumber, doclevel])
 
   const hasRequiredParams = docnumber !== "" && docyear !== ""
 
-  const getHtml = async (path: string) => {
+  const getHtml = useCallback(async (path: string) => {
 
     try {
       const htmlResp = await axios.get(path)
@@ -114,7 +211,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     catch (error) {
       console.error(error)
     }
-  }
+  }, [doclevel, docnumber, docyear])
 
   const getLawHtml = async (path: string) => {
 
@@ -163,19 +260,43 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     }
   }
 
+  const getKeywords = async (keywordsPath: string) => {
+    try {
+      const response = await axios.get(keywordsPath)
+      if (Array.isArray(response.data)) {
+        const parsedKeywords: DocumentKeyword[] = response.data
+          .filter((item): item is DocumentKeyword => (
+            item !== null
+            && typeof item === 'object'
+            && typeof item.id === 'string'
+            && typeof item.keyword === 'string'
+          ))
+        setKeywords(parsedKeywords)
+      } else {
+        setKeywords([])
+      }
+    } catch (error) {
+      console.error(error)
+      setKeywords([])
+    }
+  }
+
   useEffect(() => {
     if (!hasRequiredParams) {
       return
     }
 
-    const { docPath, structurePath } = buildPaths(lan)
+    const { docPath, structurePath, keywordsPath } = buildPaths(lan)
     if (apipath === "statute") {
       getLawHtml(docPath)
     } else {
       getHtml(docPath)
     }
     getHeadings(structurePath)
-  }, [apipath, docnumber, docyear, doclevel, lan, hasRequiredParams])
+    getKeywords(keywordsPath)
+  }, [apipath, docnumber, docyear, doclevel, lan, hasRequiredParams, buildPaths, getHtml])
+
+  const lawWithKeywords = injectKeywordsIntoLawHtml(law)
 
   return (
     <>
@@ -205,7 +326,9 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
                 <TableOfContent headings={headings} />
               </div>
 
-              <div id="documentbodydiv" style={docBodyStyle} dangerouslySetInnerHTML={{ __html: law}}></div>
+              <div id="documentbodydiv" style={docBodyStyle}>
+                <div dangerouslySetInnerHTML={{ __html: lawWithKeywords}}></div>
+              </div>
             </>
           ) : (
             <div style={{ padding: '20px', color: '#666' }}>

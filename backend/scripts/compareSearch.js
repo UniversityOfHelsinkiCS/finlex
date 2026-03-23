@@ -2,7 +2,7 @@
 /*
   Compare search results between two Finlex services.
   Usage (run from repo root):
-    node backend/scripts/compareSearch.js --q tupakka --language fin 
+    node backend/scripts/compareSearch.js --q tupakka --language fin
     node backend/scripts/compareSearch.js --q tupakka --language fin --app1 http://... --app2 http://...
     node backend/scripts/compareSearch.js --file backend/scripts/queries.txt --language fin
 */
@@ -79,7 +79,7 @@ async function compareQuery(q, language, app1, app2) {
     const app2List = asArray(app2Resp.data);
 
     const { onlyA: onlyApp1, onlyB: onlyApp2 } = diffLists(app1List, app2List);
-    
+
     return {
       q,
       app1Count: app1List.length,
@@ -98,7 +98,7 @@ async function compareQuery(q, language, app1, app2) {
 
 async function main() {
   const { q, file, language, app1, app2 } = parseArgs();
-  
+
   let queries = [];
   if (file) {
     const content = readFileSync(file, 'utf-8');
@@ -114,7 +114,7 @@ async function main() {
     process.stdout.write(`Testing "${query}"... `);
     const result = await compareQuery(query, language, app1, app2);
     results.push(result);
-    
+
     if (result.error) {
       console.log(`ERROR: ${result.error}`);
     } else if (result.match) {

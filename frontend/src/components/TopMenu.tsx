@@ -88,8 +88,8 @@ const TopMenu = ({language, handleSelect}: TopMenuProps) => {
       </div>
       <div style={menuRightStyle}>
         <LanguageSelection language={language} handleSelect={handleSelect}/>
-        <a 
-          href="/admin" 
+        <a
+          href="/admin"
           style={adminButtonStyle}
           onMouseEnter={(e) => Object.assign(e.currentTarget.style, adminButtonHoverStyle)}
           onMouseLeave={(e) => Object.assign(e.currentTarget.style, adminButtonStyle)}

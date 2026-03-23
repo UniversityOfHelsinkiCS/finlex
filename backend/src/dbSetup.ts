@@ -45,7 +45,7 @@ function printSyncSummary(results: SyncResult[]) {
   console.log('\n' + '='.repeat(80));
   console.log('TYPESENSE INDEXING SUMMARY');
   console.log('='.repeat(80));
-  
+
   let totalProcessed = 0;
   let totalSuccess = 0;
   let totalFailures = 0;
@@ -63,11 +63,11 @@ function printSyncSummary(results: SyncResult[]) {
     const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
     console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
     console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
-    
+
     totalProcessed += result.totalProcessed;
     totalSuccess += result.successCount;
     totalFailures += result.failureCount;
-    
+
     if (result.failureCount > 0) {
       hasAnyFailures = true;
     }
@@ -81,11 +81,11 @@ function printSyncSummary(results: SyncResult[]) {
     const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
     console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
     console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
-    
+
     totalProcessed += result.totalProcessed;
     totalSuccess += result.successCount;
     totalFailures += result.failureCount;
-    
+
     if (result.failureCount > 0) {
       hasAnyFailures = true;
     }
@@ -97,10 +97,10 @@ function printSyncSummary(results: SyncResult[]) {
   console.log(`  Total Documents Processed: ${totalProcessed}`);
   console.log(`  Successfully Indexed: ${totalSuccess}`);
   console.log(`  Failed to Index: ${totalFailures}`);
-  
+
   const successRate = totalProcessed > 0 ? ((totalSuccess / totalProcessed) * 100).toFixed(2) : '0.00';
   console.log(`  Success Rate: ${successRate}%`);
-  
+
   console.log('='.repeat(80));
 
   if (hasAnyFailures) {
@@ -121,12 +121,12 @@ export const runSetup = async (startYear?: number) => {
       await setupTestDatabase();
     } else {
       console.log('[SETUP] Running in production mode...');
-      
+
       const step1Start = Date.now();
       console.log('[SETUP] Step 1: Initialize database...');
       await initDatabase(startYear);
       console.log(`[SETUP] Step 1 completed in ${Date.now() - step1Start}ms`);
-      
+
       const step2Start = Date.now();
       console.log('[SETUP] Step 2: Clear and sync Typesense collections...');
       await deleteCollection('statutes', 'fin');
@@ -134,7 +134,7 @@ export const runSetup = async (startYear?: number) => {
       await deleteCollection('judgments', 'fin');
       await deleteCollection('judgments', 'swe');
       console.log(`[SETUP] Step 2 completed in ${Date.now() - step2Start}ms`);
-      
+
       const step3Start = Date.now();
       console.log('[SETUP] Step 3: Sync statutes to Typesense...');
       const statuteFinResult = await syncStatutes('fin');
@@ -142,7 +142,7 @@ export const runSetup = async (startYear?: number) => {
       const statuteSweResult = await syncStatutes('swe');
       syncResults.push(statuteSweResult);
       console.log(`[SETUP] Step 3 completed in ${Date.now() - step3Start}ms`);
-      
+
       const step4Start = Date.now();
       console.log('[SETUP] Step 4: Sync judgments to Typesense...');
       const judgmentFinResult = await syncJudgments('fin');
@@ -164,7 +164,7 @@ export const runSetup = async (startYear?: number) => {
 
     const totalTime = Date.now() - setupStartTime;
     console.log(`[SETUP] Total setup time: ${totalTime}ms (${(totalTime / 1000 / 60).toFixed(2)} minutes)`);
-    
+
     if (process.env.NODE_ENV !== 'test') {
       stopFinlexLimiterLogging();
       exit(0);

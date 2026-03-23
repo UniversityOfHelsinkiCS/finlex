@@ -45,3 +45,16 @@ export async function getJudgmentByNumberYear(number: string, year: number, lang
   const result = await query(sql, [number, year, language, level]);
   return result.rows[0]?.content || null;
 }
+
+export async function getJudgmentKeywordsByNumberYear(number: string, year: number, language: string, level: string): Promise<{ id: string, keyword: string }[]> {
+  if (level === 'any') level = '%';
+  const sql = `
+    SELECT kj.keyword AS id, kj.keyword
+    FROM keywords_judgment kj
+    JOIN judgments j ON j.uuid = kj.judgment_uuid
+    WHERE j.number = $1 AND j.year = $2 AND j.language = $3 AND j.level ILIKE $4
+    ORDER BY kj.keyword ASC
+  `;
+  const result = await query(sql, [number, year, language, level]);
+  return result.rows.map((row) => ({ id: row.id, keyword: row.keyword }));
+}

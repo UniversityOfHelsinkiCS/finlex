@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Load testing script for Finlex API
- * 
+ *
  * Usage:
  *   node backend/scripts/loadtest.js
  *   node backend/scripts/loadtest.js --url https://custom-url.fi --concurrent 50 --duration 60
@@ -31,7 +31,7 @@ const SEARCH_QUERIES = [
 function parseArgs() {
   const args = process.argv.slice(2);
   const config = { ...CONFIG };
-  
+
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--url') config.baseUrl = args[++i];
@@ -60,7 +60,7 @@ Examples:
       process.exit(0);
     }
   }
-  
+
   return config;
 }
 
@@ -271,7 +271,7 @@ class LoadTester {
 (async () => {
   const config = parseArgs();
   const tester = new LoadTester(config);
-  
+
   try {
     await tester.run();
   } catch (error) {

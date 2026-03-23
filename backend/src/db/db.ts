@@ -22,8 +22,8 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
     let i = 0;
     for (const key of statutes) {
       ++i;
-      const { uri } = buildFinlexUrl(key)
-      await setSingleStatute(buildFinlexUrl(key));
+      const statuteUrls = buildFinlexUrl(key)
+      await setSingleStatute(statuteUrls);
       if (i % 50 === 0) {
         console.log(`Inserted ${i} statutes (${statutes.length})`)
       }

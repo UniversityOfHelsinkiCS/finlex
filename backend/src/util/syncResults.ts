@@ -4,7 +4,7 @@ export function printSyncSummary(results: SyncResult[]) {
   console.log('\n' + '='.repeat(80));
   console.log('TYPESENSE INDEXING SUMMARY');
   console.log('='.repeat(80));
-  
+
   let totalProcessed = 0;
   let totalSuccess = 0;
   let totalFailures = 0;
@@ -20,11 +20,11 @@ export function printSyncSummary(results: SyncResult[]) {
     const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
     console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
     console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
-    
+
     totalProcessed += result.totalProcessed;
     totalSuccess += result.successCount;
     totalFailures += result.failureCount;
-    
+
     if (result.failureCount > 0) {
       hasAnyFailures = true;
     }
@@ -37,11 +37,11 @@ export function printSyncSummary(results: SyncResult[]) {
     const statusText = result.failureCount === 0 ? 'SUCCESS' : 'PARTIAL';
     console.log(`  ${status} ${result.language.toUpperCase()}: ${statusText}`);
     console.log(`     Total: ${result.totalProcessed} | Success: ${result.successCount} | Failed: ${result.failureCount}`);
-    
+
     totalProcessed += result.totalProcessed;
     totalSuccess += result.successCount;
     totalFailures += result.failureCount;
-    
+
     if (result.failureCount > 0) {
       hasAnyFailures = true;
     }
@@ -52,10 +52,10 @@ export function printSyncSummary(results: SyncResult[]) {
   console.log(`  Total Documents Processed: ${totalProcessed}`);
   console.log(`  Successfully Indexed: ${totalSuccess}`);
   console.log(`  Failed to Index: ${totalFailures}`);
-  
+
   const successRate = totalProcessed > 0 ? ((totalSuccess / totalProcessed) * 100).toFixed(2) : '0.00';
   console.log(`  Success Rate: ${successRate}%`);
-  
+
   console.log('='.repeat(80));
 
   if (hasAnyFailures) {

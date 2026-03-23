@@ -2,10 +2,19 @@ import axios from "axios"
 import { useState, useEffect } from "react"
 import { useParams } from "react-router-dom"
 import * as Sentry from '@sentry/react'
+
+interface YearStatuteDocument {
+  docNumber: number
+  docTitle: string
+  docYear: number
+  docVersion?: string
+  isEmpty: boolean
+}
+
 const YearDocumentList = () => {
   const { year } = useParams<{ year: string }>()
 
-  const [documents, setDocuments] = useState([])
+  const [documents, setDocuments] = useState<YearStatuteDocument[]>([])
   const [sortAscending, setSortAscending] = useState(true)
   const lang = 'fin'
 
@@ -28,8 +37,9 @@ const YearDocumentList = () => {
     return
   }
 
-  const getApiUrl = (number: any, v: any) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${v ? v : ''}`
-  const getFlexUrl = (number: any) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
+  const getApiUrl = (number: number, version?: string) => `https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated/${year}/${number}/${lang}@${version ? version : ''}`
+  const getFlexUrl = (number: number) => `https://www.finlex.fi/fi/lainsaadanto/saadoskokoelma/${year}/${number}`
+  const emptyDocuments = documents.filter((doc) => doc.isEmpty)
 
   return (
     <div>
@@ -37,9 +47,9 @@ const YearDocumentList = () => {
       <div style={{ marginBottom: '20px', padding: '10px', backgroundColor: '#f5f5f5', borderRadius: '4px' }}>
         <h3>Stautues of {year}</h3>
         <p>total: {documents.length}</p>
-        <p>empty: {documents.filter((doc: any) => doc.isEmpty).length}</p>
-        <p>percentage empty: <span style={{ color: documents.filter((doc: any) => doc.isEmpty).length / documents.length > 0.5 ? 'red' : 'green' }}>
-          {((documents.filter((doc: any) => doc.isEmpty).length / documents.length) * 100).toFixed(1)}%
+        <p>empty: {emptyDocuments.length}</p>
+        <p>percentage empty: <span style={{ color: emptyDocuments.length / documents.length > 0.5 ? 'red' : 'green' }}>
+          {((emptyDocuments.length / documents.length) * 100).toFixed(1)}%
         </span></p>
       </div>
 
@@ -70,15 +80,15 @@ const YearDocumentList = () => {
         </thead>
         <tbody>
           {documents
-            .sort((a: any, b: any) => {
+            .sort((a, b) => {
               const isEmptySort = sortAscending ? (a.isEmpty ? 1 : 0) - (b.isEmpty ? 1 : 0) : (b.isEmpty ? 1 : 0) - (a.isEmpty ? 1 : 0)
               if (isEmptySort === 0) {
                 return sortAscending ? a.docNumber - b.docNumber : b.docNumber - a.docNumber
               }
               return isEmptySort
             })
-            .map((doc: any, index: number) => (
-              <tr key={index}>
+            .map((doc) => (
+              <tr key={`${doc.docYear}-${doc.docNumber}`}>
                 <td>{doc.docNumber}</td>
                 <td><a href={`/lainsaadanto/${doc.docYear}/${doc.docNumber}`}>{doc.docTitle}</a></td>
                 <td>{doc.docYear}</td>

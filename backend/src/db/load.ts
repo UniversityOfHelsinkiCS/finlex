@@ -1,5 +1,5 @@
 import { parseStringPromise } from 'xml2js';
-import axios, { AxiosResponse } from 'axios'
+import axios, { AxiosRequestConfig, AxiosResponse } from 'axios'
 import * as Sentry from '@sentry/node';
 import { Statute, StatuteKey, StatuteKeyWord } from '../types/statute.js';
 import { Judgment, JudgmentKey, JudgmentKeyWord } from '../types/judgment.js';
@@ -38,7 +38,7 @@ export function startFinlexLimiterLogging() {
   if (finlexLogInterval) {
     return; // Already started
   }
-  
+
   console.log('[finlexLimiter] Starting rate limiter logging...');
   finlexLogInterval = setInterval(() => {
     const requestsThisMinute = finlexRequestCount - lastMinuteCount;
@@ -56,7 +56,7 @@ export function stopFinlexLimiterLogging() {
 }
 
 // Generic fetch with exponential backoff and jitter, still honoring the limiter.
-async function fetchWithBackoff<T = unknown>(url: string, config: any, opts?: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number; retryOn?: (status: number) => boolean }): Promise<AxiosResponse<T>> {
+async function fetchWithBackoff<T = unknown>(url: string, config: AxiosRequestConfig, opts?: { maxRetries?: number; baseDelayMs?: number; maxDelayMs?: number; retryOn?: (status: number) => boolean }): Promise<AxiosResponse<T>> {
   const maxRetries = opts?.maxRetries ?? 10;
   const baseDelayMs = opts?.baseDelayMs ?? 500; // initial backoff
   const maxDelayMs = opts?.maxDelayMs ?? 8000; // cap
@@ -168,24 +168,24 @@ function buildJudgmentUrl(judgment: JudgmentKey): string {
 function parseTitleFromXMLDOM(xmlString: string): string {
   const dom = new JSDOM(xmlString, { contentType: 'text/xml' });
   const doc = dom.window.document;
-  
+
   // Find the docTitle element
   const docTitleElement = doc.querySelector('docTitle');
-  
+
   if (!docTitleElement) {
     throw new Error('docTitle not found in XML');
   }
-  
+
   // Get the text content which preserves document order
   const title = docTitleElement.textContent || '';
-  
+
   // Clean up extra whitespace and newlines
   return title.replace(/\s+/g, ' ').trim();
 }
 
 async function parseTitlefromXML(result: AxiosResponse<unknown>): Promise<string> {
   const xmlString = result.data as string;
-  
+
   try {
     // Use DOM parser to preserve document order
     return parseTitleFromXMLDOM(xmlString);
@@ -201,45 +201,49 @@ async function parseTitlefromXML(result: AxiosResponse<unknown>): Promise<string
   }
 }
 
-export function parseTitleFromXmlObject(resultNode: any): string {
-  const docTitleRaw = resultNode?.act?.preface?.p?.docTitle ||
-    resultNode?.decree?.preface?.p?.docTitle;
+export function parseTitleFromXmlObject(resultNode: unknown): string {
+  const node = resultNode as {
+    act?: { preface?: { p?: { docTitle?: unknown } } },
+    decree?: { preface?: { p?: { docTitle?: unknown } } }
+  }
+  const docTitleRaw = node?.act?.preface?.p?.docTitle ||
+    node?.decree?.preface?.p?.docTitle;
   if (!docTitleRaw) {
     throw new Error('docTitle not found')
   }
 
   // Helper function to recursively extract text from nested objects
-  function extractText(obj: any): string {
+  function extractText(obj: unknown): string {
     if (typeof obj === 'string') {
       return obj;
     }
-    
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => extractText(item)).join('');
+    }
+
     if (typeof obj === 'object' && obj !== null) {
+      const objectValue = obj as Record<string, unknown>
       let text = '';
-      
+
       // Handle the _ property (text content)
-      if (obj._ && typeof obj._ === 'string') {
-        text += obj._;
+      if (typeof objectValue._ === 'string') {
+        text += objectValue._;
       }
-      
+
       // Handle ref objects (references with text and links)
-      if (obj.ref) {
-        text += extractText(obj.ref);
+      if (objectValue.ref) {
+        text += extractText(objectValue.ref);
       }
-      
-      // Handle arrays of mixed content
-      if (Array.isArray(obj)) {
-        text += obj.map(item => extractText(item)).join('');
-      }
-      
+
       return text;
     }
-    
+
     return String(obj);
   }
 
   const title = extractText(docTitleRaw);
-  
+
   // Clean up extra whitespace and newlines
   return title.replace(/\s+/g, ' ').trim();
 }
@@ -359,7 +363,8 @@ export function parseKeywordsfromHTML(html: string, lang: string): string[] {
   const extractFromNextPayload = (source: string, tag: string): string[] => {
     const keywords: string[] = [];
     // Find the Asiasanat section marker in escaped JSON: \"Asiasanat\"
-    const asiaIdx = source.indexOf(`\\"${tag}\\"`);
+    const escapedQuote = `\\${'"'}`;
+    const asiaIdx = source.indexOf(`${escapedQuote}${tag}${escapedQuote}`);
     if (asiaIdx === -1) return keywords;
 
     // Extract a large window around it
@@ -369,7 +374,7 @@ export function parseKeywordsfromHTML(html: string, lang: string): string[] {
 
     // Pattern for keyword divs in escaped JSON:
     // [\"$\",\"div\",\"<keyword>\",{\"children\":[[
-    const keywordDivPattern = /\[\\"[$]\\",\\"div\\",\\"([^\\\"]+)\\",\{\\"children\\":\[\[/g;
+    const keywordDivPattern = /\[\\"[$]\\",\\"div\\",\\"([^\\"]+)\\",\{\\"children\\":\[\[/g;
 
     let divMatch;
     while ((divMatch = keywordDivPattern.exec(window)) !== null) {
@@ -510,7 +515,7 @@ function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
     'vuonna', 'vuoden', 'korkein oikeus', 'hovioikeus', 'käräjäoikeus',
     'asiassa', 'kanne', 'valitus', 'tuomio', 'päätös', 'perustuslaki',
     'laki', 'säännös', 'oikeus', 'velvollisuus', 'sopimusrikkomus',
-    'olla', 'ollut', 'ollut', 'ollaan', 'olleet', 'ovat', 'ole', 
+    'olla', 'ollut', 'ollut', 'ollaan', 'olleet', 'ovat', 'ole',
     'tämä', 'näin', 'sekä', 'myös', 'vain', 'kuin', 'ilman',
     'saada', 'tehdä', 'antaa', 'pitää', 'tulla', 'voida', 'käydä',
   ];
@@ -523,7 +528,7 @@ function detectLanguage(text: string): 'fin' | 'swe' | 'unknown' {
     'denna', 'detta', 'den', 'det', 'och', 'även', 'bara',
     'få', 'göra', 'ge', 'hålla', 'komma', 'kunna', 'skall',
   ];
-  
+
   let finnishScore = 0;
   let swedishScore = 0;
   for (const indicator of finnishIndicators) if (lowerText.includes(indicator)) finnishScore++;
@@ -548,7 +553,7 @@ function parseFlightStreamContent(html: string, lang?: 'fin' | 'swe'): string[] 
   const contentMatches = Array.from(combinedPayload.matchAll(highlightableRegex));
   const fragments: string[] = [];
   for (const match of contentMatches) {
-    let text = match[1]
+    const text = match[1]
       .replace(/\\"/g, '"')
       .replace(/\\\\/g, '\\')
       .replace(/\\n/g, '\n')
@@ -557,7 +562,7 @@ function parseFlightStreamContent(html: string, lang?: 'fin' | 'swe'): string[] 
     if (text &&
         text.length > 3 &&
         !text.match(/^[a-f0-9]+:/) &&
-        !text.match(/^\$/) && 
+        !text.match(/^\$/) &&
         !text.includes('$undefined') &&
         !text.includes('"className"') &&
         !text.includes('"style"')) {
@@ -697,7 +702,7 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
   }
 
   const xmlContent = result.data as string;
-  const isInForce = await parseIsInForceFromXml(xmlContent);
+  void await parseIsInForceFromXml(xmlContent);
 
 
   const docTitle = await parseTitlefromXML(result)

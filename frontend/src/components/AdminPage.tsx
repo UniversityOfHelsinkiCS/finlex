@@ -97,7 +97,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
           setDefaultStartYear(sy)
           if (startYearInput.trim() === '') setStartYearInput(String(sy))
         }
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -105,7 +105,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
       fetchConfig()
     }
     return () => { mounted = false }
-  }, [isAuthenticated])
+  }, [isAuthenticated, startYearInput])
 
   const handleUpdate = async () => {
     setIsUpdating(true)
@@ -435,8 +435,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
           gap: '10px',
           alignItems: 'center'
         }}>
-          <a 
-            href="/lainsaadanto/" 
+          <a
+            href="/lainsaadanto/"
             style={backButtonStyle}
             onMouseEnter={(e) => Object.assign(e.currentTarget.style, backButtonHoverStyle)}
             onMouseLeave={(e) => Object.assign(e.currentTarget.style, backButtonStyle)}

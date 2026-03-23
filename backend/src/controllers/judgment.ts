@@ -1,7 +1,7 @@
 import express from 'express';
 import * as Sentry from '@sentry/node';
 import * as config from '../util/config.js';
-import { getJudgmentByNumberYear, getJudgmentsByYear, searchJudgmentsByKeywordAndLanguage } from '../db/models/judgment.js';
+import { getJudgmentByNumberYear, getJudgmentKeywordsByNumberYear, getJudgmentsByYear, searchJudgmentsByKeywordAndLanguage } from '../db/models/judgment.js';
 import { parseHtmlHeadings } from '../util/parse.js';
 const judgmentRouter = express.Router();
 
@@ -47,6 +47,20 @@ judgmentRouter.get('/id/:year/:number/:language/:level', async (request: express
   }
   response.setHeader('Content-Type', 'text/html')
   response.send(content)
+})
+
+judgmentRouter.get('/keywords/id/:year/:number/:language/:level', async (request: express.Request, response: express.Response): Promise<void> => {
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
+  const level = request.params.level as string
+  try {
+    const keywords = await getJudgmentKeywordsByNumberYear(number, year, language, level)
+    response.json(keywords)
+  } catch (error) {
+    console.error('Error fetching judgment keywords', error)
+    response.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 judgmentRouter.get('/search', async (request: express.Request, response: express.Response): Promise<void> => {
