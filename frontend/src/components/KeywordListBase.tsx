@@ -55,7 +55,7 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
   const indexSidebarStyle: React.CSSProperties = {
     width: '90px',
     position: 'sticky',
-    top: '60px',
+    top: '95px',
     alignSelf: 'flex-start',
     border: '0px solid green'
   }
@@ -72,12 +72,16 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
     borderRadius: '4px',
     textDecoration: 'none',
     backgroundColor: '#F3F8FC',
-    color: '#0C6FC0'
+    color: '#000000'
   }
 
   const keywordListStyle: React.CSSProperties = {
     width: '700px',
     maxWidth: '100%'
+  }
+
+  const groupHeadingStyle: React.CSSProperties = {
+    scrollMarginTop: '70px'
   }
 
   const getKeywords = async (url: string) => {
@@ -188,7 +192,7 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
             <h1>{title}</h1>
             {rowsByLetter.map(({ groupLetter, groupRows }) => (
               <div key={groupLetter}>
-                <h2 id={`keyword-group-${groupLetter}`}>{groupLetter}</h2>
+                <h2 id={`keyword-group-${groupLetter}`} style={groupHeadingStyle}>{groupLetter}</h2>
                 {groupRows.map(row => {
                   const label = row.displayKeyword ?? row.keyword
 

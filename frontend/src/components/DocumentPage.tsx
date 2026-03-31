@@ -25,6 +25,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
+  const [tocButtonHovered, setTocButtonHovered] = useState<boolean>(false)
   const [isTocVisible, setIsTocVisible] = useState<boolean>(() => {
     try {
       const savedValue = localStorage.getItem(tocVisibilityStorageKey)
@@ -113,7 +114,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     borderRadius: '4px',
     cursor: 'pointer',
     fontSize: '14px',
-    backgroundColor: isTocVisible ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+    backgroundColor: tocButtonHovered ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
     transition: 'background-color 0.2s ease'
   }
 
@@ -375,6 +376,8 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
             style={tocButtonStyle}
             aria-pressed={isTocVisible}
             aria-label={getTocButtonText()}
+            onMouseEnter={() => setTocButtonHovered(true)}
+            onMouseLeave={() => setTocButtonHovered(false)}
           >
             {getTocButtonText()}
           </button>
