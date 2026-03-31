@@ -132,6 +132,11 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     return '/oikeuskaytanto/asiasanat/'
   }
 
+  const getDocumentReference = () => {
+    const ref = `${docnumber}/${docyear}`
+    return doclevel ? `${doclevel.toUpperCase()} ${ref}` : ref
+  }
+
   const getTocButtonText = () => {
     if (lan === 'fin') {
       return isTocVisible ? 'Piilota sisällysluettelo' : 'Näytä sisällysluettelo'
@@ -255,6 +260,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
       const levelLabel = doclevel ? doclevel.toUpperCase() : ''
       const htmlText: string = `<h1>${levelLabel} ${docnumber}/${docyear} </h1> ${htmlResp.data}`
       setLaw(htmlText)
+      setDocTitle(getDocumentReference())
     }
     catch (error) {
       console.error(error)
@@ -280,7 +286,8 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
       const container = document.createElement('div')
       container.appendChild(resultDocumentFragment)
 
-      setDocTitle(xmlDoc.querySelector("docTitle")?.textContent || "Lain otsikko puuttuu")
+      const parsedDocTitle = xmlDoc.querySelector("docTitle")?.textContent?.trim() || "Lain otsikko puuttuu"
+      setDocTitle(`${getDocumentReference()} - ${parsedDocTitle}`)
 
       const bodyarr = Array.from (container.querySelectorAll("article"))
       if(bodyarr.length >= 1) {
