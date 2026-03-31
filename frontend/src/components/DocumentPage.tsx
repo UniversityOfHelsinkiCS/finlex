@@ -6,6 +6,8 @@ import { useParams } from 'react-router-dom'
 import {Helmet} from "react-helmet";
 import TopMenu from './TopMenu'
 
+const tocVisibilityStorageKey = 'finlex.document.toc.visible'
+
 interface DocumentKeyword {
   id: string,
   keyword: string
@@ -23,6 +25,17 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
+  const [isTocVisible, setIsTocVisible] = useState<boolean>(() => {
+    try {
+      const savedValue = localStorage.getItem(tocVisibilityStorageKey)
+      if (savedValue === null) {
+        return true
+      }
+      return savedValue === 'true'
+    } catch {
+      return true
+    }
+  })
 
   const topStyle: React.CSSProperties = {
     display: 'flex',
@@ -70,7 +83,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   }
 
   const docBodyStyle: React.CSSProperties = {
-    width: '600px',
+    width: isTocVisible ? '600px' : 'min(900px, 100%)',
     border: '0px solid pink'
   }
 
@@ -83,6 +96,24 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     cursor: 'pointer',
     fontSize: '14px',
     backgroundColor: backButtonHovered ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
+    transition: 'background-color 0.2s ease'
+  }
+
+  const topLeftControlsStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  }
+
+  const tocButtonStyle: React.CSSProperties = {
+    color: '#fefefe',
+    textDecoration: 'none',
+    border: 'none',
+    padding: '6px 12px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    backgroundColor: isTocVisible ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
     transition: 'background-color 0.2s ease'
   }
 
@@ -99,6 +130,23 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
       return '/lainsaadanto/asiasanat/'
     }
     return '/oikeuskaytanto/asiasanat/'
+  }
+
+  const getTocButtonText = () => {
+    if (lan === 'fin') {
+      return isTocVisible ? 'Piilota sisällysluettelo' : 'Näytä sisällysluettelo'
+    }
+    return isTocVisible ? 'Dölj innehållsförteckning' : 'Visa innehållsförteckning'
+  }
+
+  const handleTocToggle = () => {
+    const nextValue = !isTocVisible
+    setIsTocVisible(nextValue)
+    try {
+      localStorage.setItem(tocVisibilityStorageKey, String(nextValue))
+    } catch {
+      // Ignore localStorage write failures.
+    }
   }
 
   const injectKeywordsIntoLawHtml = (html: string): string => {
@@ -306,14 +354,24 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
         </title>
       </Helmet>
       <div id="topId" style={topStyle}>
-        <button
-          onClick={() => window.location.href = getBackUrl()}
-          style={backButtonStyle}
-          onMouseEnter={() => setBackButtonHovered(true)}
-          onMouseLeave={() => setBackButtonHovered(false)}
-        >
-          {language === 'fin' ? 'Takaisin' : 'Tillbaka'}
-        </button>
+        <div style={topLeftControlsStyle}>
+          <button
+            onClick={() => window.location.href = getBackUrl()}
+            style={backButtonStyle}
+            onMouseEnter={() => setBackButtonHovered(true)}
+            onMouseLeave={() => setBackButtonHovered(false)}
+          >
+            {language === 'fin' ? 'Takaisin' : 'Tillbaka'}
+          </button>
+          <button
+            onClick={handleTocToggle}
+            style={tocButtonStyle}
+            aria-pressed={isTocVisible}
+            aria-label={getTocButtonText()}
+          >
+            {getTocButtonText()}
+          </button>
+        </div>
         <div style={{flex: 1, display: 'flex', justifyContent: 'center'}}>
           <TopMenu language={lan} handleSelect={handleSelect} />
         </div>
@@ -322,9 +380,11 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
         <div id="contentBlock" style={contentBlockStyle}>
           {hasRequiredParams ? (
             <>
-              <div id="leftMargin" style={tocStyle}>
-                <TableOfContent headings={headings} />
-              </div>
+              {isTocVisible && (
+                <div id="leftMargin" style={tocStyle}>
+                  <TableOfContent headings={headings} />
+                </div>
+              )}
 
               <div id="documentbodydiv" style={docBodyStyle}>
                 <div dangerouslySetInnerHTML={{ __html: lawWithKeywords}}></div>
