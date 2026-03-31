@@ -10,9 +10,6 @@ docker compose up
 ```
 
 ## To Do
-P1
-- Yksi opiskelija toivoi aakkkosten koostetta asiasanastoon
-- Toimii hyvin. Selaimen otsikossa olisi hyvä näkyä lain nimen lisäksi myös säädöskokoelman numero, jotta sitä ei tarvitse lähteä erikseen kaivelemaan vastausta kirjoittaessa. Säädösten alaotsikot eivät erotu momenteista visuaalisesti.
 
 P2
 - Status-taulukon käyttäytyminen vähän jank
