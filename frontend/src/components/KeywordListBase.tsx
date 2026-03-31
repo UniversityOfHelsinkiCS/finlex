@@ -18,7 +18,6 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
   const [lan, setLan] = useState<string>(() => localStorage.getItem('language') || language)
   const path = `${apiBasePath}/${lan}`
   const title = lan === 'fin' ? 'Asiasanat' : 'Ämnesord'
-  let letter = ''
 
   const topStyle: React.CSSProperties = {
     display: 'flex',
@@ -43,9 +42,42 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
   }
 
   const contentContainerStyle: React.CSSProperties = {
-    width: '700px',
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+    gap: '20px',
+    width: '100%',
+    maxWidth: '900px',
     border: '0px solid black',
     marginTop: '50px'
+  }
+
+  const indexSidebarStyle: React.CSSProperties = {
+    width: '90px',
+    position: 'sticky',
+    top: '60px',
+    alignSelf: 'flex-start',
+    border: '0px solid green'
+  }
+
+  const indexStyle: React.CSSProperties = {
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: '8px'
+  }
+
+  const indexLinkStyle: React.CSSProperties = {
+    display: 'inline-block',
+    padding: '2px 6px',
+    borderRadius: '4px',
+    textDecoration: 'none',
+    backgroundColor: '#F3F8FC',
+    color: '#0C6FC0'
+  }
+
+  const keywordListStyle: React.CSSProperties = {
+    width: '700px',
+    maxWidth: '100%'
   }
 
   const getKeywords = async (url: string) => {
@@ -103,6 +135,28 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
     return [...displayRows].sort((a, b) => collator.compare(getLabel(a), getLabel(b)))
   }, [displayRows])
 
+  const rowsByLetter = useMemo(() => {
+    const groups = new Map<string, KeywordRow[]>()
+
+    sortedRows.forEach((row) => {
+      const label = row.displayKeyword ?? row.keyword
+      const firstLetter = label.charAt(0).toLocaleUpperCase('fi')
+
+      if (!groups.has(firstLetter)) {
+        groups.set(firstLetter, [])
+      }
+
+      groups.get(firstLetter)?.push(row)
+    })
+
+    return Array.from(groups.entries()).map(([groupLetter, groupRows]) => ({
+      groupLetter,
+      groupRows
+    }))
+  }, [sortedRows])
+
+  const letterIndex = rowsByLetter.map(group => group.groupLetter)
+
   return (
     <>
       <Helmet>
@@ -115,24 +169,40 @@ const KeywordListBase = ({ language, apiBasePath, routeBasePath }: KeywordListBa
       </div>
       <div style={contentStyle} id="contentdiv">
         <div id="contentDiv" style={contentContainerStyle}>
-          <h1>{title}</h1>
-          {Array.isArray(sortedRows) && sortedRows.map(row => {
-            const label = row.displayKeyword ?? row.keyword
-            const firstLetter = label.charAt(0).toLocaleUpperCase('fi')
-            const letterChanged = firstLetter !== letter
-            letter = firstLetter
-
-            return (
-              <div key={`${row.id}-upper`}>
-                {letterChanged && <h2>{firstLetter}</h2>}
-                <div key={row.id}>
-                  <a href={prepareLink(row.id.replace('-alias-adoptio', ''))}>
-                    {label}
+          {letterIndex.length > 0 && (
+            <div style={indexSidebarStyle}>
+              <div style={indexStyle}>
+                {letterIndex.map(indexLetter => (
+                  <a
+                    key={indexLetter}
+                    href={`#keyword-group-${indexLetter}`}
+                    style={indexLinkStyle}
+                  >
+                    {indexLetter}
                   </a>
-                </div>
+                ))}
               </div>
-            )
-          })}
+            </div>
+          )}
+          <div style={keywordListStyle}>
+            <h1>{title}</h1>
+            {rowsByLetter.map(({ groupLetter, groupRows }) => (
+              <div key={groupLetter}>
+                <h2 id={`keyword-group-${groupLetter}`}>{groupLetter}</h2>
+                {groupRows.map(row => {
+                  const label = row.displayKeyword ?? row.keyword
+
+                  return (
+                    <div key={row.id}>
+                      <a href={prepareLink(row.id.replace('-alias-adoptio', ''))}>
+                        {label}
+                      </a>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

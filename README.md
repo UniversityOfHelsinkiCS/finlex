@@ -11,7 +11,6 @@ docker compose up
 
 ## To Do
 P1
-- Toivottiin, että lakien sisällysluettelo olisi kapeampi tai sen saisi klikattua kiinni. Tämä johtuu siitä, että opiskelijat tekevät tentin läppärillä ja haluavat pitää auki vierekkäin tenttikysymystä ja Tenttilexiä.
 - Yksi opiskelija toivoi aakkkosten koostetta asiasanastoon
 - Toimii hyvin. Selaimen otsikossa olisi hyvä näkyä lain nimen lisäksi myös säädöskokoelman numero, jotta sitä ei tarvitse lähteä erikseen kaivelemaan vastausta kirjoittaessa. Säädösten alaotsikot eivät erotu momenteista visuaalisesti.
 
