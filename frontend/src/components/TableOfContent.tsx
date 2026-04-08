@@ -5,12 +5,29 @@ import type {Headings } from "../types"
 const TableOfContent = ({headings}: {headings: Headings[]}) => {
 
   const data = headings
+  const fixedTopBarHeight = 50
+
+  const handleHeadingClick = (event: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    event.preventDefault()
+
+    const targetElement = document.getElementById(id)
+    if (!targetElement) {
+      return
+    }
+
+    const targetY = targetElement.getBoundingClientRect().top + window.scrollY - fixedTopBarHeight
+    window.scrollTo({
+      top: Math.max(0, targetY),
+      behavior: 'smooth',
+    })
+
+    window.history.replaceState(null, '', `#${id}`)
+  }
 
   const tocStyle: React.CSSProperties = {
     display: 'flow',
     width: '100%',
     border: '0px solid blue',
-    backgroundColor: '#F3F8FC',
     padding: '0px',
     paddingLeft: '4px'
 
@@ -18,12 +35,10 @@ const TableOfContent = ({headings}: {headings: Headings[]}) => {
 
   const autoscrollStyle: React.CSSProperties = {
     overflow: 'auto',
-    height: 'calc(100vh - 80px)',
-    position: 'sticky',
-    top: '60px',
-    left: '0px',
-    width: '300px',
+    height: 'calc(100vh - 100px)',
+    width: '100%',
     display: 'flex',
+    backgroundColor: '#E7F1FA',
     border: '0px solid red',
 
   }
@@ -52,11 +67,11 @@ const TableOfContent = ({headings}: {headings: Headings[]}) => {
             return (
               <div key={section.name}>
                 <div id={section.name} style={h1Style}>
-                  <a href={`#${section.id}`}>{section.name}</a>
+                  <a href={`#${section.id}`} onClick={(event) => handleHeadingClick(event, section.id)}>{section.name}</a>
                 </div>
                 {section.content.map((item) => {
                   return (<div id={item.name} key={item.name} style={h2Style}>
-                    <a href={`#${item.id}`}>{item.name}</a>
+                    <a href={`#${item.id}`} onClick={(event) => handleHeadingClick(event, item.id)}>{item.name}</a>
                   </div>
                   )
                 })}
