@@ -18,13 +18,18 @@ const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
     borderTop: '1px solid #e0e0e0',
     zIndex: 1000,
   }
-  const text = language === 'swe'
+  const disclaimer = language === 'swe'
     ? 'Denna webbplats är avsedd att användas enbart i samband med tentamina vid Juridiska fakulteten vid Helsingfors universitet. Annan användning av webbplatsen är förbjuden.'
     : 'Tämä sivusto on tarkoitettu käytettäväksi ainoastaan Helsingin yliopiston oikeustieteellisen tiedekunnan tenttien yhteydessä. Sivuston muunlainen käyttö on kielletty.'
 
+  const description = language === 'swe'
+    ? 'Tenttilex innehåller Finlexs gällande lagstiftning samt prejudikat från högsta förvaltningsdomstolen och högsta domstolen på finska och svenska.'
+    : 'Tenttilex sisältää Finlexin ajantasaisen lainsäädännön sekä korkeimman hallinto-oikeuden ja korkeimman oikeuden ennakkopäätökset suomeksi ja ruotsiksi.'
+
   return (
     <footer style={style} id="footer-disclaimer">
-      {text}
+      <div>{disclaimer}</div>
+      <div>{description}</div>
     </footer>
   )
 }
