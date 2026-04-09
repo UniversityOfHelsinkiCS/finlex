@@ -28,8 +28,8 @@ const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
 
   return (
     <footer style={style} id="footer-disclaimer">
-      <div>{disclaimer}</div>
       <div>{description}</div>
+      <div>{disclaimer}</div>
     </footer>
   )
 }
