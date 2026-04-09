@@ -81,6 +81,7 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1,
   }
 
   const contentStyle: React.CSSProperties = {
@@ -225,7 +226,9 @@ const DocumentPage = ({language, apipath} : DocumentPageProps) => {
   const topLeftControlsStyle: React.CSSProperties = {
     display: 'flex',
     alignItems: 'center',
-    gap: '8px'
+    gap: '8px',
+    position: 'relative',
+    zIndex: 2,
   }
 
   const tocButtonStyle: React.CSSProperties = {
