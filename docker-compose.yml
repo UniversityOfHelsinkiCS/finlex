@@ -35,7 +35,7 @@ services:
       TYPESENSE_HOST: typesense
       TYPESENSE_PORT: 8108
       TYPESENSE_API_KEY: xyz
-      START_YEAR: 2024
+      START_YEAR: 2010
       NODE_ENV: production
       ADMIN_PASSWORD: finlex
       JWT_SECRET: test-key
