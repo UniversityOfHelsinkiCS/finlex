@@ -27,6 +27,7 @@ if (!process.env.TYPESENSE_API_KEY) {
   console.error("TYPESENSE_API_KEY environment variable is not set.")
   process.exit(1)
 }
+const TYPESENSE_API_KEY = process.env.TYPESENSE_API_KEY
 
 let tsClient: Typesense.Client | null = null
 
@@ -47,7 +48,7 @@ async function initTypesenseClient(retries = 5): Promise<Typesense.Client> {
             protocol: "http",
           },
         ],
-        apiKey: process.env.TYPESENSE_API_KEY,
+        apiKey: TYPESENSE_API_KEY,
         connectionTimeoutSeconds: 30,
       })
 
