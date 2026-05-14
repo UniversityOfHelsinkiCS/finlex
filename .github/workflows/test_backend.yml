@@ -5,7 +5,7 @@ on:
       - main
       - staging
     paths:
-      - 'backend/**'
+      - "backend/**"
 
 jobs:
   test_backend:
@@ -33,7 +33,7 @@ jobs:
       finlex-typesense-svc:
         image: typesense/typesense:28.0
         env:
-          TYPESENSE_API_KEY: 'xyz'
+          TYPESENSE_API_KEY: "xyz"
           TYPESENSE_PORT: 8108
           TYPESENSE_DATA_DIR: /data
         volumes:
@@ -48,9 +48,11 @@ jobs:
       - name: Use Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24.x'
+          node-version: "24.x"
       - name: Sleep
         run: sleep 30
+      - name: Install safe-chain
+        run: curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
       - name: Install dependencies
         run: npm ci
       - name: Lint code

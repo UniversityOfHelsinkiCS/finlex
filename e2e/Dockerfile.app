@@ -1,6 +1,9 @@
 FROM node:24.0.2
 RUN apt update && apt install -y curl
 
+RUN curl -fsSL https://github.com/AikidoSec/safe-chain/releases/latest/download/install-safe-chain.sh | sh -s -- --ci
+ENV PATH="/root/.safe-chain/shims:/root/.safe-chain/bin:${PATH}"
+
 WORKDIR /home/node/app/frontend
 COPY frontend/package.json .
 RUN npm install --prefer-offline --no-audit
