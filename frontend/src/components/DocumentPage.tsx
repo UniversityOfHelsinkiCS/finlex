@@ -52,6 +52,19 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     }
   })
 
+  const isCompactViewport =
+    typeof window !== "undefined" && window.innerWidth < 1000
+  const tocColumnWidth = isTocVisible
+    ? isCompactViewport
+      ? "200px"
+      : "320px"
+    : "24px"
+  const searchColumnWidth = isSearchVisible
+    ? isCompactViewport
+      ? "200px"
+      : "272px"
+    : "24px"
+
   const topStyle: React.CSSProperties = {
     display: "flex",
     position: "fixed",
@@ -94,9 +107,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const contentBlockStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: typeof window !== 'undefined' && window.innerWidth < 1000
-      ? "10px minmax(160px, 200px) 1fr minmax(160px, 200px) 10px"
-      : "10px minmax(240px, 320px) 1fr minmax(240px, 272px) 10px",
+    gridTemplateColumns: `4px ${tocColumnWidth} minmax(0, 1fr) ${searchColumnWidth} 4px`,
     columnGap: "12px",
     alignItems: "start",
     width: "100%",
@@ -128,7 +139,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     gridRow: "1 / 2",
     width: "100%",
     padding: "0px",
-    margin: "10px 0px",
+    margin: "6px 0px",
     border: "0px solid yellow",
     flexShrink: 0,
     position: "sticky",
@@ -146,15 +157,15 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
   }
 
   const docBodyExpandedStyle: React.CSSProperties = {
-    gridColumn: "2 / 4",
+    gridColumn: "3 / 4",
   }
 
   const docBodyWithSearchHiddenStyle: React.CSSProperties = {
-    gridColumn: "3 / 5",
+    gridColumn: "3 / 4",
   }
 
   const docBodyExpandedWithSearchHiddenStyle: React.CSSProperties = {
-    gridColumn: "2 / 5",
+    gridColumn: "3 / 4",
   }
 
   const searchPanelStyle: React.CSSProperties = {
@@ -162,10 +173,10 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     gridRow: "1 / 2",
     width: "100%",
     maxWidth: "272px",
-    margin: "10px 0px 10px 0px",
+    margin: "6px 0px 6px 0px",
     display: "flex",
     flexDirection: "column",
-    alignItems: "flex-start",
+    alignItems: "stretch",
     position: "sticky",
     top: "60px",
     alignSelf: "flex-start",
@@ -274,6 +285,41 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     ...sideToggleButtonStyle,
     alignSelf: "flex-end",
     marginLeft: "auto",
+  }
+
+  const collapsedSidebarToggleButtonStyle: React.CSSProperties = {
+    color: "#FFFFFF",
+    textDecoration: "none",
+    border: "1px solid #0C6FC0",
+    borderRadius: "4px",
+    cursor: "pointer",
+    fontSize: "13px",
+    backgroundColor: "#0C6FC0",
+    width: "100%",
+    minHeight: "116px",
+    padding: "6px 0px",
+    marginBottom: "0px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    writingMode: "vertical-rl",
+    textOrientation: "mixed",
+    lineHeight: "1",
+    letterSpacing: "0.02em",
+  }
+
+  const collapsedTocButtonStyle: React.CSSProperties = {
+    ...collapsedSidebarToggleButtonStyle,
+    alignSelf: "flex-start",
+    paddingLeft: "0px",
+    paddingRight: "0px",
+  }
+
+  const collapsedSearchButtonStyle: React.CSSProperties = {
+    ...collapsedSidebarToggleButtonStyle,
+    alignSelf: "flex-end",
+    paddingLeft: "0px",
+    paddingRight: "0px",
   }
 
   const getBackUrl = () => {
@@ -655,7 +701,11 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
               <div id="leftMargin" style={tocStyle}>
                 <button
                   onClick={handleTocToggle}
-                  style={sideToggleButtonStyle}
+                  style={
+                    isTocVisible
+                      ? sideToggleButtonStyle
+                      : collapsedTocButtonStyle
+                  }
                   aria-pressed={isTocVisible}
                   aria-label={getTocButtonText()}
                 >
@@ -694,7 +744,11 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
               >
                 <button
                   onClick={handleSearchToggle}
-                  style={searchSideToggleButtonStyle}
+                  style={
+                    isSearchVisible
+                      ? searchSideToggleButtonStyle
+                      : collapsedSearchButtonStyle
+                  }
                   aria-pressed={isSearchVisible}
                   aria-label={getSearchToggleButtonText()}
                 >
@@ -740,7 +794,9 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                               ? searchButtonStyle
                               : searchButtonDisabledStyle
                           }
-                          disabled={searchMatchCount === 0 || !searchQuery.trim()}
+                          disabled={
+                            searchMatchCount === 0 || !searchQuery.trim()
+                          }
                         >
                           {lan === "fin" ? "Edellinen" : "Föregående"}
                         </button>
@@ -751,7 +807,9 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                               ? searchButtonStyle
                               : searchButtonDisabledStyle
                           }
-                          disabled={searchMatchCount === 0 || !searchQuery.trim()}
+                          disabled={
+                            searchMatchCount === 0 || !searchQuery.trim()
+                          }
                         >
                           {lan === "fin" ? "Seuraava" : "Nästa"}
                         </button>
