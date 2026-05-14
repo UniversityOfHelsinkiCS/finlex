@@ -14,11 +14,10 @@
 
 3. Kloonaa tämä repo koneellesi
 4. Avaa terminaali repon juureen
-5. Asenna noden moduulit
+5. Asenna riippuvuudet
 
 - ```bash
-  npm --prefix ./backend install
-  npm --prefix ./frontend install
+  npm run setup
   ```
 
 # Ympäristömuuttujat
@@ -39,11 +38,23 @@ Ympäristömuuttujat luetaan kehitystilassa `backend/.env` tiedostosta.
 ## Kehitystilassa
 
 ```bash
-npm --prefix ./backend run dev
-npm --prefix ./frontend run dev
+# Käynnistä riippuvuudet (Postgres + Typesense) ja frontend + backend
+npm run dev:full
 
 # Frontend: http://localhost:5173
 # Backend: http://localhost:3001
+```
+
+Jos Postgres ja Typesense ovat jo käynnissä, voit käynnistää vain sovellukset:
+
+```bash
+npm run dev
+```
+
+Jos haluat käynnistää vain riippuvuudet:
+
+```bash
+npm run dev:deps
 ```
 
 ## Tuotantotilassa

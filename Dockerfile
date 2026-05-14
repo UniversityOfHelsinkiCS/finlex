@@ -7,8 +7,9 @@ COPY backend ./backend/
 RUN npm --prefix ./frontend ci && \
     npm --prefix ./frontend run build
 
-RUN npm --prefix ./backend ci && \
-    npm --prefix ./backend run build
+RUN npm --prefix ./backend ci
+RUN rm -rf ./backend/src/frontend && mkdir -p ./backend/src/frontend && cp -r ./frontend/dist/* ./backend/src/frontend/
+RUN npm --prefix ./backend run build
 
 COPY . .
 

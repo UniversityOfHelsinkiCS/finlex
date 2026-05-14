@@ -1,0 +1,19 @@
+{
+  "name": "finlex-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "install:all": "npm --prefix ./backend install && npm --prefix ./frontend install",
+    "dev:deps": "docker compose up -d postgres typesense",
+    "dev:deps:down": "docker compose stop postgres typesense",
+    "seed": "npm --prefix ./backend run seed",
+    "dev:backend": "npm --prefix ./backend run dev",
+    "dev:frontend": "npm --prefix ./frontend run dev",
+    "dev": "concurrently -k -n backend,frontend \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:full": "npm run dev:deps && npm run seed && npm run dev",
+    "setup": "npm install && npm run install:all"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

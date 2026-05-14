@@ -22,6 +22,7 @@ RUN npm ci --prefer-offline --no-audit
 
 COPY backend/tsconfig.json .
 COPY backend/src ./src
+RUN rm -rf ./src/frontend && mkdir -p ./src/frontend && cp -r ../frontend/dist/* ./src/frontend/
 RUN npm run build
 RUN chown -R node:node /home/node/app || true
 RUN chmod -R a+rX /home/node/app/backend/dist || true

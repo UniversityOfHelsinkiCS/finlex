@@ -23,6 +23,7 @@
   "scripts": {
     "start": "NODE_ENV=production node dist/index.js",
     "build": "rm -rf dist && tsc && cp -r src/frontend dist/frontend",
+    "seed": "NODE_ENV=development node --import tsx src/dbSetup.ts",
     "dev:setup": "NODE_ENV=development node --import tsx --watch src/dbSetup.ts",
     "dev": "NODE_ENV=development node --import tsx --watch src/index.ts",
     "lint": "eslint .",
