@@ -16,6 +16,15 @@ spec:
       labels:
         app: finlex-lukija
     spec:
+      initContainers:
+        - name: wait-for-typesense
+          image: busybox:1.35
+          command:
+            [
+              "sh",
+              "-c",
+              'until nc -z finlex-typesense-svc 8000; do echo "Waiting for typesense..."; sleep 2; done; echo "Typesense is ready"',
+            ]
       containers:
         - name: finlex-lukija
           image: finlex-lukija:staging
@@ -49,6 +58,30 @@ spec:
                 configMapKeyRef:
                   name: finlex-lukija-config
                   key: JWT_SECRET
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: 3001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/check-db-status
+              port: 3001
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 2
+          startupProbe:
+            httpGet:
+              path: /api/ping
+              port: 3001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 30
           resources:
             limits:
               memory: "3800Mi"
