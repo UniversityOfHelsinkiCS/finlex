@@ -147,12 +147,18 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
       <div style={menuRightStyle}>
         <span style={tooltipAnchorStyle}>
           <a
-            href={tenttilexUrl}
             title={tenttilexHoverText}
             aria-label={tenttilexHoverText}
-            target="_blank"
-            rel="noopener noreferrer"
             style={iconButtonStyle}
+            role="button"
+            tabIndex={0}
+            onClick={() => window.open(tenttilexUrl)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                window.open(tenttilexUrl)
+              }
+            }}
             onMouseEnter={(e) => {
               Object.assign(e.currentTarget.style, adminButtonHoverStyle)
               setShowTenttilexTooltip(true)
