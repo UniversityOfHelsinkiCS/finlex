@@ -9,6 +9,13 @@ import { buildHighlightedHtml } from "../util/documentSearch"
 
 const tocVisibilityStorageKey = "finlex.document.toc.visible"
 const searchVisibilityStorageKey = "finlex.document.search.visible"
+const savedPagesStorageKey = "finlex.savedVisitedPages"
+const savedPagesUpdatedEvent = "finlex-saved-pages-updated"
+
+interface SavedPageEntry {
+  path: string
+  title: string
+}
 
 interface DocumentKeyword {
   id: string
@@ -26,6 +33,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
   const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
+  const [isCurrentPageSaved, setIsCurrentPageSaved] = useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [activeSearchMatchIndex, setActiveSearchMatchIndex] =
     useState<number>(0)
@@ -265,6 +273,30 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     zIndex: 2,
   }
 
+  const saveButtonStyle: React.CSSProperties = {
+    color: "#ffffff",
+    backgroundColor: "#d97706",
+    border: "1px solid #d97706",
+    borderRadius: "4px",
+    padding: "6px 12px",
+    cursor: "pointer",
+    fontSize: "14px",
+  }
+
+  const saveButtonSavedStyle: React.CSSProperties = {
+    ...saveButtonStyle,
+    backgroundColor: "#2e7d32",
+    borderColor: "#2e7d32",
+    opacity: 1,
+    cursor: "default",
+  }
+
+  const documentActionsStyle: React.CSSProperties = {
+    display: "flex",
+    justifyContent: "flex-end",
+    marginBottom: "12px",
+  }
+
   const sideToggleButtonStyle: React.CSSProperties = {
     color: "#0C6FC0",
     textDecoration: "none",
@@ -358,6 +390,105 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
       return isSearchVisible ? "Piilota haku" : "Näytä haku"
     }
     return isSearchVisible ? "Dölj sökning" : "Visa sökning"
+  }
+
+  const getCurrentDocumentPath = useCallback(() => {
+    if (apipath === "statute" && docyear && docnumber) {
+      return `/lainsaadanto/${docyear}/${docnumber}`
+    }
+
+    if (apipath !== "statute" && docyear && docnumber && doclevel) {
+      return `/oikeuskaytanto/${docyear}/${docnumber}/${doclevel}`
+    }
+
+    return ""
+  }, [apipath, docyear, docnumber, doclevel])
+
+  const syncCurrentPageSavedState = useCallback(() => {
+    const currentPath = getCurrentDocumentPath()
+    if (!currentPath) {
+      setIsCurrentPageSaved(false)
+      return
+    }
+
+    try {
+      const savedPagesRaw = localStorage.getItem(savedPagesStorageKey)
+      const savedPages = savedPagesRaw ? JSON.parse(savedPagesRaw) : []
+      if (Array.isArray(savedPages)) {
+        const isSaved = savedPages.some((item) => {
+          if (typeof item === "string") {
+            return item === currentPath
+          }
+
+          if (
+            item !== null
+            && typeof item === "object"
+            && typeof item.path === "string"
+          ) {
+            return item.path === currentPath
+          }
+
+          return false
+        })
+        setIsCurrentPageSaved(isSaved)
+        return
+      }
+    } catch {
+      // Ignore localStorage parse failures.
+    }
+
+    setIsCurrentPageSaved(false)
+  }, [getCurrentDocumentPath])
+
+  const handleSaveCurrentPage = () => {
+    const currentPath = getCurrentDocumentPath()
+    if (!currentPath) {
+      return
+    }
+
+    try {
+      const savedPagesRaw = localStorage.getItem(savedPagesStorageKey)
+      const savedPages = savedPagesRaw ? JSON.parse(savedPagesRaw) : []
+      const parsedSavedPages: SavedPageEntry[] = Array.isArray(savedPages)
+        ? savedPages
+            .map((item) => {
+              if (typeof item === "string") {
+                return { path: item, title: item }
+              }
+              if (
+                item !== null
+                && typeof item === "object"
+                && typeof item.path === "string"
+              ) {
+                return {
+                  path: item.path,
+                  title:
+                    typeof item.title === "string" && item.title.trim()
+                      ? item.title
+                      : item.path,
+                }
+              }
+              return null
+            })
+            .filter((item): item is SavedPageEntry => item !== null)
+        : []
+
+      if (!parsedSavedPages.some((item) => item.path === currentPath)) {
+        const savedTitle = docTitle && docTitle !== "Tenttilex"
+          ? docTitle
+          : `${docnumber}/${docyear}`
+        const updatedPages = [
+          { path: currentPath, title: savedTitle },
+          ...parsedSavedPages,
+        ].slice(0, 8)
+        localStorage.setItem(savedPagesStorageKey, JSON.stringify(updatedPages))
+      }
+
+      setIsCurrentPageSaved(true)
+      window.dispatchEvent(new Event(savedPagesUpdatedEvent))
+    } catch {
+      // Ignore localStorage write failures.
+    }
   }
 
   const handleTocToggle = () => {
@@ -672,6 +803,22 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     })
   }, [highlightedLaw.html, searchMatchCount, searchQuery])
 
+  useEffect(() => {
+    syncCurrentPageSavedState()
+
+    const syncSavedState = () => {
+      syncCurrentPageSavedState()
+    }
+
+    window.addEventListener(savedPagesUpdatedEvent, syncSavedState)
+    window.addEventListener("storage", syncSavedState)
+
+    return () => {
+      window.removeEventListener(savedPagesUpdatedEvent, syncSavedState)
+      window.removeEventListener("storage", syncSavedState)
+    }
+  }, [syncCurrentPageSavedState])
+
   return (
     <>
       <Helmet>
@@ -729,6 +876,24 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                         }
                 }
               >
+                {apipath === "statute" && (
+                  <div style={documentActionsStyle}>
+                    <button
+                      type="button"
+                      onClick={handleSaveCurrentPage}
+                      style={isCurrentPageSaved ? saveButtonSavedStyle : saveButtonStyle}
+                      disabled={isCurrentPageSaved}
+                    >
+                      {isCurrentPageSaved
+                        ? language === "fin"
+                          ? "Tallennettu sivu"
+                          : "Sidan sparad"
+                        : language === "fin"
+                          ? "Tallenna sivu"
+                          : "Spara sida"}
+                    </button>
+                  </div>
+                )}
                 <div
                   dangerouslySetInnerHTML={{ __html: highlightedLaw.html }}
                 ></div>

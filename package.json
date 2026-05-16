@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "install:all": "npm --prefix ./backend install && npm --prefix ./frontend install",
-    "dev:deps": "docker compose up -d postgres typesense",
+    "dev:deps": "docker compose up postgres typesense",
     "dev:deps:down": "docker compose stop postgres typesense",
     "seed": "npm --prefix ./backend run seed",
     "dev:backend": "npm --prefix ./backend run dev",

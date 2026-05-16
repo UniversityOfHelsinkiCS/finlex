@@ -1,7 +1,73 @@
+import { useEffect, useState } from "react"
 import LanguageSelection from "./LanguageSelection"
 import type { TopMenuProps } from "../types"
 
+const savedPagesStorageKey = "finlex.savedVisitedPages"
+const savedPagesUpdatedEvent = "finlex-saved-pages-updated"
+
+interface SavedPageEntry {
+  path: string
+  title: string
+}
+
+const getSavedPages = (): SavedPageEntry[] => {
+  try {
+    const storedPages = localStorage.getItem(savedPagesStorageKey)
+    const parsedPages = storedPages ? JSON.parse(storedPages) : []
+
+    if (!Array.isArray(parsedPages)) {
+      return []
+    }
+
+    const normalizedPages: SavedPageEntry[] = []
+    parsedPages.forEach((item) => {
+      if (typeof item === "string") {
+        normalizedPages.push({
+          path: item,
+          title: getPageLabel(item),
+        })
+        return
+      }
+
+      if (
+        item !== null
+        && typeof item === "object"
+        && typeof item.path === "string"
+      ) {
+        normalizedPages.push({
+          path: item.path,
+          title:
+            typeof item.title === "string" && item.title.trim()
+              ? item.title
+              : getPageLabel(item.path),
+        })
+      }
+    })
+
+    return normalizedPages
+  } catch {
+    return []
+  }
+}
+
+const getPageLabel = (path: string) => {
+  const cleanPath = path.endsWith("/") ? path.slice(0, -1) : path
+  const parts = cleanPath.split("/")
+  const section = parts[1]
+  const year = parts[2]
+  const id = parts[3]
+  const level = parts[4]
+
+  if (section === "oikeuskaytanto" && level) {
+    return `OK ${year}/${id}/${level}`
+  }
+
+  return `L ${year}/${id}`
+}
+
 const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
+  const [savedPages, setSavedPages] = useState<SavedPageEntry[]>(() => getSavedPages())
+
   const menyStyle: React.CSSProperties = {
     color: "#fefefe",
     textDecoration: "none",
@@ -40,6 +106,70 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
     right: 0,
   }
 
+  const savedPagesDropdownStyle: React.CSSProperties = {
+    position: "relative",
+  }
+
+  const savedPagesSummaryStyle: React.CSSProperties = {
+    color: "#fefefe",
+    fontSize: "13px",
+    border: "2px solid rgba(255,255,255,0.55)",
+    borderRadius: "10px",
+    padding: "3px 10px",
+    whiteSpace: "nowrap",
+    cursor: "pointer",
+    listStyle: "none",
+  }
+
+  const savedPagesMenuStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "32px",
+    right: 0,
+    minWidth: "420px",
+    maxWidth: "560px",
+    maxHeight: "220px",
+    overflowY: "auto",
+    backgroundColor: "#ffffff",
+    border: "1px solid #c7d9ea",
+    borderRadius: "6px",
+    padding: "8px",
+    boxShadow: "0 6px 14px rgba(0,0,0,0.18)",
+    zIndex: 35,
+  }
+
+  const savedPagesListStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    marginBottom: "8px",
+  }
+
+  const savedPageLinkStyle: React.CSSProperties = {
+    color: "#0C6FC0",
+    textDecoration: "none",
+    border: "1px solid #c7d9ea",
+    borderRadius: "4px",
+    padding: "4px 8px",
+    fontSize: "13px",
+    display: "block",
+    width: "100%",
+    boxSizing: "border-box",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+  }
+
+  const clearSavedPagesButtonStyle: React.CSSProperties = {
+    color: "#ffffff",
+    backgroundColor: "#0C6FC0",
+    border: "1px solid #0C6FC0",
+    borderRadius: "4px",
+    padding: "4px 8px",
+    fontSize: "13px",
+    cursor: "pointer",
+    whiteSpace: "nowrap",
+    width: "100%",
+  }
+
   const secdivStyle: React.CSSProperties = {
     border: "0px solid pink",
     padding: 0,
@@ -74,6 +204,26 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
   const path: string = window.location.pathname
   const lawpage: boolean = path.startsWith("/lainsaadanto")
 
+  useEffect(() => {
+    const refreshSavedPages = () => {
+      setSavedPages(getSavedPages())
+    }
+
+    window.addEventListener(savedPagesUpdatedEvent, refreshSavedPages)
+    window.addEventListener("storage", refreshSavedPages)
+
+    return () => {
+      window.removeEventListener(savedPagesUpdatedEvent, refreshSavedPages)
+      window.removeEventListener("storage", refreshSavedPages)
+    }
+  }, [])
+
+  const clearSavedPages = () => {
+    setSavedPages([])
+    localStorage.removeItem(savedPagesStorageKey)
+    window.dispatchEvent(new Event(savedPagesUpdatedEvent))
+  }
+
   return (
     <div id="topmenudiv" style={menuDivStle}>
       <div style={menuCenterStyle}>
@@ -95,6 +245,25 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
         </div>
       </div>
       <div style={menuRightStyle}>
+        {savedPages.length > 0 && (
+          <details style={savedPagesDropdownStyle}>
+            <summary style={savedPagesSummaryStyle}>
+              {language === "fin" ? "Tallennetut" : "Sparade"}
+            </summary>
+            <div style={savedPagesMenuStyle}>
+              <div style={savedPagesListStyle}>
+                {savedPages.map((savedPage) => (
+                  <a key={savedPage.path} href={savedPage.path} style={savedPageLinkStyle}>
+                    {savedPage.title}
+                  </a>
+                ))}
+              </div>
+              <button type="button" onClick={clearSavedPages} style={clearSavedPagesButtonStyle}>
+                {language === "fin" ? "Tyhjenna lista" : "Clear list"}
+              </button>
+            </div>
+          </details>
+        )}
         <LanguageSelection language={language} handleSelect={handleSelect} />
         <a
           href="/admin"
