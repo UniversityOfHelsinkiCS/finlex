@@ -30,9 +30,9 @@ const getSavedPages = (): SavedPageEntry[] => {
       }
 
       if (
-        item !== null
-        && typeof item === "object"
-        && typeof item.path === "string"
+        item !== null &&
+        typeof item === "object" &&
+        typeof item.path === "string"
       ) {
         normalizedPages.push({
           path: item.path,
@@ -66,7 +66,9 @@ const getPageLabel = (path: string) => {
 }
 
 const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
-  const [savedPages, setSavedPages] = useState<SavedPageEntry[]>(() => getSavedPages())
+  const [savedPages, setSavedPages] = useState<SavedPageEntry[]>(() =>
+    getSavedPages(),
+  )
 
   const menyStyle: React.CSSProperties = {
     color: "#fefefe",
@@ -142,6 +144,12 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
     flexDirection: "column",
     gap: "6px",
     marginBottom: "8px",
+  }
+
+  const emptySavedPagesTextStyle: React.CSSProperties = {
+    color: "#475569",
+    fontSize: "13px",
+    padding: "4px 2px 8px 2px",
   }
 
   const savedPageLinkStyle: React.CSSProperties = {
@@ -245,25 +253,41 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
         </div>
       </div>
       <div style={menuRightStyle}>
-        {savedPages.length > 0 && (
-          <details style={savedPagesDropdownStyle}>
-            <summary style={savedPagesSummaryStyle}>
-              {language === "fin" ? "Tallennetut" : "Sparade"}
-            </summary>
-            <div style={savedPagesMenuStyle}>
-              <div style={savedPagesListStyle}>
-                {savedPages.map((savedPage) => (
-                  <a key={savedPage.path} href={savedPage.path} style={savedPageLinkStyle}>
-                    {savedPage.title}
-                  </a>
-                ))}
+        <details style={savedPagesDropdownStyle}>
+          <summary style={savedPagesSummaryStyle}>
+            {language === "fin" ? "Tallennetut" : "Sparade"}
+          </summary>
+          <div style={savedPagesMenuStyle}>
+            {savedPages.length === 0 ? (
+              <div style={emptySavedPagesTextStyle}>
+                {language === "fin"
+                  ? "ei talletettuja sivuja"
+                  : "Inga sparade sidor"}
               </div>
-              <button type="button" onClick={clearSavedPages} style={clearSavedPagesButtonStyle}>
-                {language === "fin" ? "Tyhjenna lista" : "Clear list"}
-              </button>
-            </div>
-          </details>
-        )}
+            ) : (
+              <>
+                <div style={savedPagesListStyle}>
+                  {savedPages.map((savedPage) => (
+                    <a
+                      key={savedPage.path}
+                      href={savedPage.path}
+                      style={savedPageLinkStyle}
+                    >
+                      {savedPage.title}
+                    </a>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={clearSavedPages}
+                  style={clearSavedPagesButtonStyle}
+                >
+                  {language === "fin" ? "Tyhjenna lista" : "Clear list"}
+                </button>
+              </>
+            )}
+          </div>
+        </details>
         <LanguageSelection language={language} handleSelect={handleSelect} />
         <a
           href="/admin"

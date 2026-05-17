@@ -34,6 +34,9 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
   const [isCurrentPageSaved, setIsCurrentPageSaved] = useState<boolean>(false)
+  const [hasSavedPages, setHasSavedPages] = useState<boolean>(false)
+  const [isSaveTooltipVisible, setIsSaveTooltipVisible] =
+    useState<boolean>(false)
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [activeSearchMatchIndex, setActiveSearchMatchIndex] =
     useState<number>(0)
@@ -62,11 +65,14 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const isCompactViewport =
     typeof window !== "undefined" && window.innerWidth < 1000
-  const tocColumnWidth = isTocVisible
-    ? isCompactViewport
-      ? "200px"
-      : "320px"
-    : "24px"
+  const hasTableOfContents = headings.length > 0
+  const tocColumnWidth = hasTableOfContents
+    ? isTocVisible
+      ? isCompactViewport
+        ? "200px"
+        : "320px"
+      : "24px"
+    : "0px"
   const searchColumnWidth = isSearchVisible
     ? isCompactViewport
       ? "200px"
@@ -297,6 +303,28 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     marginBottom: "12px",
   }
 
+  const saveButtonWrapperStyle: React.CSSProperties = {
+    display: "inline-flex",
+    position: "relative",
+  }
+
+  const saveButtonTooltipStyle: React.CSSProperties = {
+    position: "absolute",
+    top: "calc(100% + 8px)",
+    right: "0",
+    maxWidth: "280px",
+    backgroundColor: "#1f2937",
+    color: "#ffffff",
+    fontSize: "12px",
+    lineHeight: 1.4,
+    padding: "6px 8px",
+    borderRadius: "4px",
+    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.22)",
+    whiteSpace: "normal",
+    zIndex: 30,
+    pointerEvents: "none",
+  }
+
   const sideToggleButtonStyle: React.CSSProperties = {
     color: "#0C6FC0",
     textDecoration: "none",
@@ -415,15 +443,16 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
       const savedPagesRaw = localStorage.getItem(savedPagesStorageKey)
       const savedPages = savedPagesRaw ? JSON.parse(savedPagesRaw) : []
       if (Array.isArray(savedPages)) {
+        setHasSavedPages(savedPages.length > 0)
         const isSaved = savedPages.some((item) => {
           if (typeof item === "string") {
             return item === currentPath
           }
 
           if (
-            item !== null
-            && typeof item === "object"
-            && typeof item.path === "string"
+            item !== null &&
+            typeof item === "object" &&
+            typeof item.path === "string"
           ) {
             return item.path === currentPath
           }
@@ -433,10 +462,13 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
         setIsCurrentPageSaved(isSaved)
         return
       }
+
+      setHasSavedPages(false)
     } catch {
       // Ignore localStorage parse failures.
     }
 
+    setHasSavedPages(false)
     setIsCurrentPageSaved(false)
   }, [getCurrentDocumentPath])
 
@@ -456,9 +488,9 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                 return { path: item, title: item }
               }
               if (
-                item !== null
-                && typeof item === "object"
-                && typeof item.path === "string"
+                item !== null &&
+                typeof item === "object" &&
+                typeof item.path === "string"
               ) {
                 return {
                   path: item.path,
@@ -474,9 +506,10 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
         : []
 
       if (!parsedSavedPages.some((item) => item.path === currentPath)) {
-        const savedTitle = docTitle && docTitle !== "Tenttilex"
-          ? docTitle
-          : `${docnumber}/${docyear}`
+        const savedTitle =
+          docTitle && docTitle !== "Tenttilex"
+            ? docTitle
+            : `${docnumber}/${docyear}`
         const updatedPages = [
           { path: currentPath, title: savedTitle },
           ...parsedSavedPages,
@@ -819,6 +852,14 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     }
   }, [syncCurrentPageSavedState])
 
+  const savePageTooltip = !isCurrentPageSaved
+    ? language === "fin"
+      ? hasSavedPages
+        ? "Tallenna sivu omaan listaan."
+        : "Tallenna sivu omaan listaan. pääset tallenetuille sivulle jatkossa suoraan ilman hakutoimontoa"
+      : "Spara den här sidan till din lista."
+    : undefined
+
   return (
     <>
       <Helmet>
@@ -845,21 +886,23 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
             <>
               <div style={leftEmptyMarginStyle} aria-hidden="true" />
 
-              <div id="leftMargin" style={tocStyle}>
-                <button
-                  onClick={handleTocToggle}
-                  style={
-                    isTocVisible
-                      ? sideToggleButtonStyle
-                      : collapsedTocButtonStyle
-                  }
-                  aria-pressed={isTocVisible}
-                  aria-label={getTocButtonText()}
-                >
-                  {getTocButtonText()}
-                </button>
-                {isTocVisible && <TableOfContent headings={headings} />}
-              </div>
+              {hasTableOfContents && (
+                <div id="leftMargin" style={tocStyle}>
+                  <button
+                    onClick={handleTocToggle}
+                    style={
+                      isTocVisible
+                        ? sideToggleButtonStyle
+                        : collapsedTocButtonStyle
+                    }
+                    aria-pressed={isTocVisible}
+                    aria-label={getTocButtonText()}
+                  >
+                    {getTocButtonText()}
+                  </button>
+                  {isTocVisible && <TableOfContent headings={headings} />}
+                </div>
+              )}
 
               <div
                 id="documentbodydiv"
@@ -876,22 +919,40 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                         }
                 }
               >
-                {apipath === "statute" && (
+                {(apipath === "statute" || apipath === "judgment") && (
                   <div style={documentActionsStyle}>
-                    <button
-                      type="button"
-                      onClick={handleSaveCurrentPage}
-                      style={isCurrentPageSaved ? saveButtonSavedStyle : saveButtonStyle}
-                      disabled={isCurrentPageSaved}
+                    <span
+                      style={saveButtonWrapperStyle}
+                      onMouseEnter={() => setIsSaveTooltipVisible(true)}
+                      onMouseLeave={() => setIsSaveTooltipVisible(false)}
                     >
-                      {isCurrentPageSaved
-                        ? language === "fin"
-                          ? "Tallennettu sivu"
-                          : "Sidan sparad"
-                        : language === "fin"
-                          ? "Tallenna sivu"
-                          : "Spara sida"}
-                    </button>
+                      <button
+                        type="button"
+                        onClick={handleSaveCurrentPage}
+                        style={
+                          isCurrentPageSaved
+                            ? saveButtonSavedStyle
+                            : saveButtonStyle
+                        }
+                        disabled={isCurrentPageSaved}
+                        onFocus={() => setIsSaveTooltipVisible(true)}
+                        onBlur={() => setIsSaveTooltipVisible(false)}
+                        aria-label={savePageTooltip}
+                      >
+                        {isCurrentPageSaved
+                          ? language === "fin"
+                            ? "Tallennettu sivu"
+                            : "Sidan sparad"
+                          : language === "fin"
+                            ? "Tallenna sivu"
+                            : "Spara sida"}
+                      </button>
+                      {isSaveTooltipVisible && savePageTooltip && (
+                        <span role="tooltip" style={saveButtonTooltipStyle}>
+                          {savePageTooltip}
+                        </span>
+                      )}
+                    </span>
                   </div>
                 )}
                 <div
