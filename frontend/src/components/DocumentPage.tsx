@@ -862,6 +862,14 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
         : "Spara den här sidan till din lista. Du kommer till dina sparade sidor nästa gång direkt utan sökfunktionen"
     : undefined
 
+  const savePageAriaLabel = isCurrentPageSaved
+    ? language === "fin"
+      ? "Tallennettu sivu"
+      : "Sidan sparad"
+    : language === "fin"
+      ? "Tallenna sivu"
+      : "Spara sida"
+
   return (
     <>
       <Helmet>
@@ -939,7 +947,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                         disabled={isCurrentPageSaved}
                         onFocus={() => setIsSaveTooltipVisible(true)}
                         onBlur={() => setIsSaveTooltipVisible(false)}
-                        aria-label={savePageTooltip}
+                        aria-label={savePageAriaLabel}
                       >
                         {isCurrentPageSaved
                           ? language === "fin"
