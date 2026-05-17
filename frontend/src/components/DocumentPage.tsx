@@ -856,8 +856,10 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     ? language === "fin"
       ? hasSavedPages
         ? "Tallenna sivu omaan listaan."
-        : "Tallenna sivu omaan listaan. pääset tallenetuille sivulle jatkossa suoraan ilman hakutoimontoa"
-      : "Spara den här sidan till din lista."
+        : "Tallenna sivu omaan listaan. pääset tallenetuille sivulle jatkossa suoraan ilman hakutoimintoa"
+      : hasSavedPages
+        ? "Spara den här sidan till din lista."
+        : "Spara den här sidan till din lista. Du kommer till dina sparade sidor nästa gång direkt utan sökfunktionen"
     : undefined
 
   return (
