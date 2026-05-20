@@ -11,16 +11,17 @@ docker compose up
 
 ## To Do
 
-P2
-- Status-taulukon käyttäytyminen vähän jank
-  - estää myös pääsyn admin-näkymään välillä mikä ei tarkoituksenmukaista
-  - välillä näyttää väärää viestiä kun klikkailee päivitystä
-- Parempi päivityslogiikka?
-  - Jättää nyt joitain välistä, en tiedä onko 429ien takia, pitäisi parantaa lokitusta/backoffia/retryjä
-  - Ylimääräisten poisto
-- Oikeuskäytännön parsiminen fi/sv tällä hetkellä vaikuttaisi toimivan, mutta on vähän epätäsmällinen
-  - käyttää "kielen tunnistamista", joidenkin avainsanojen perusteella
-  - HTML/Flight/React dokumenttien parsiminen täsmällisemmin Finlexin puolelta jokseenkin monimutkaista
+20.5. Muistiinpanoja ajantasaisuus/kumottu fikseistä
+- Ajantasaisuus/kumottu-leima lienee triviaali, löytyy xml:stä true/false-lippu tyyliin:
+```
+<proprietary source="#organization_fi.finlex">
+<finlex:documentYear>2014</finlex:documentYear>
+<finlex:administrativeBranch refersTo="#fi.ministry-of-the-environment"/>
+<finlex:typeStatute refersTo="#act"/>
+<finlex:isInForce value="true"/>
+```
+- pitää ehkä kumota tietokannan täytöstä kohta joka jättää kumotut pois?
+- 603/1977 mystisempi, tenttilexin versio ajantasainen, mutta vanha ajantasainen?
 
 
 ## Tietokannan päivitys/synkronointi
