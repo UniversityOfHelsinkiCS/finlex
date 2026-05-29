@@ -1,6 +1,6 @@
 import * as Sentry from '@sentry/node';
 import { Pool, QueryResult } from 'pg';
-import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment, parseTitleFromXmlString } from './load.js';
+import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment, parseTitleFromXmlString, parseIsInForceFromXml } from './load.js';
 import { getStatuteCountByYear, getStatutesByYear } from './models/statute.js';
 import { getJudgmentCountByYear, getJudgmentsByYear } from './models/judgment.js';
 import { StatuteKey } from '../types/statute.js';
@@ -265,9 +265,11 @@ async function createTables(): Promise<void> {
         version TEXT,
         content XML NOT NULL,
         is_empty BOOLEAN NOT NULL,
+        is_in_force BOOLEAN,
         CONSTRAINT unique_act UNIQUE (number, year, language)
       )
     `);
+    await client.query(`ALTER TABLE statutes ADD COLUMN IF NOT EXISTS is_in_force BOOLEAN`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS common_names (
         uuid UUID PRIMARY KEY,
@@ -462,6 +464,41 @@ async function normalizeStatuteTitlesByYear(year: number): Promise<number> {
   }
 }
 
+async function backfillIsInForce(): Promise<{ updated: number; skipped: number }> {
+  try {
+    const client = await pool.connect();
+    const result = await client.query(
+      'SELECT uuid, content::text AS content, number, year, language FROM statutes WHERE is_in_force IS NULL'
+    );
+    let updated = 0;
+    let skipped = 0;
+
+    for (const row of result.rows) {
+      try {
+        const isInForce = await parseIsInForceFromXml(row.content);
+        if (isInForce !== null) {
+          await client.query('UPDATE statutes SET is_in_force = $1 WHERE uuid = $2', [isInForce, row.uuid]);
+          updated += 1;
+        } else {
+          skipped += 1;
+        }
+      } catch (error) {
+        console.error(`Failed to backfill is_in_force for statute ${row.uuid} (${row.number}/${row.year}, ${row.language}):`, error);
+        Sentry.captureException(error);
+        skipped += 1;
+      }
+    }
+
+    client.release();
+    console.log(`[backfill] is_in_force: updated ${updated}, skipped ${skipped} out of ${result.rows.length} statutes`);
+    return { updated, skipped };
+  } catch (error) {
+    console.error('Error backfilling is_in_force:', error);
+    Sentry.captureException(error);
+    throw error;
+  }
+}
+
 async function closePool() {
   try {
     await pool.end();
@@ -510,4 +547,4 @@ async function addStatusRow(data: object, updating: boolean = false): Promise<vo
   }
 }
 
-export { query, pool, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear };
+export { query, pool, setPool, closePool, createTables, dropTables, dbIsReady, fillDb, dbIsUpToDate, setupTestDatabase, clearStatusRows, addStatusRow, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear, backfillIsInForce };

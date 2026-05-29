@@ -7,6 +7,7 @@ export interface Statute {
     version: string | null;
     content: string;
     is_empty: boolean;
+    is_in_force: boolean | null;
 }
 
 export interface StatuteKey {
@@ -23,6 +24,7 @@ export interface StatuteListItem {
     docTitle: string;
     isEmpty: boolean;
     docVersion: string | null;
+    isInForce: boolean | null;
 }
 
 export interface StatuteKeyWord {
@@ -38,4 +40,5 @@ export interface StatuteSearchResult {
     title: string;
     has_content: number;
     version: string | null;
+    is_in_force?: number;
 }

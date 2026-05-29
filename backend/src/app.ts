@@ -10,7 +10,7 @@ import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
 import { runSetup } from './dbSetup.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
-import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear } from './db/db.js';
+import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear, backfillIsInForce } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
 import { buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatute } from './db/load.js';
 import type { JudgmentKey } from './types/judgment.js';
@@ -448,6 +448,26 @@ app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request
     console.error('[REBUILD] Rebuild endpoint error:', error);
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to start typesense rebuild' });
+  }
+});
+
+app.post('/api/admin/backfill-is-in-force', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    res.status(200).json({ status: 'started', message: 'is_in_force backfill started in background' });
+    setImmediate(async () => {
+      try {
+        console.info('[backfill] Starting is_in_force backfill...');
+        const { updated, skipped } = await backfillIsInForce();
+        console.info(`[backfill] Completed: updated=${updated}, skipped=${skipped}`);
+      } catch (error) {
+        console.error('[backfill] is_in_force backfill failed:', error);
+        Sentry.captureException(error);
+      }
+    });
+  } catch (error) {
+    console.error('Backfill endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to start backfill' });
   }
 });
 

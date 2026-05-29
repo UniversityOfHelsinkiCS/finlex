@@ -2,6 +2,7 @@
 configmap.yaml
 .env
 bin/*
+CLAUDE.md
 
 # Playwright
 node_modules/

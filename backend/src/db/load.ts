@@ -301,7 +301,7 @@ async function parseCommonNamesFromXML(result: AxiosResponse<unknown>): Promise<
  * - true / false when finlex:isInForce/@value is present
  * - null when the field is missing or can't be parsed
  */
-async function parseIsInForceFromXml(xmlString: string): Promise<boolean | null> {
+export async function parseIsInForceFromXml(xmlString: string): Promise<boolean | null> {
   try {
     const parser = new XMLParser({
       ignoreAttributes: false,
@@ -702,8 +702,7 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
   }
 
   const xmlContent = result.data as string;
-  void await parseIsInForceFromXml(xmlContent);
-
+  const isInForce = await parseIsInForceFromXml(xmlContent);
 
   const docTitle = await parseTitlefromXML(result)
   const imageLinks = await parseImagesfromXML(result)
@@ -722,7 +721,8 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
     language: docLanguage,
     version: docVersion,
     content: result.data as string,
-    is_empty: is_empty
+    is_empty: is_empty,
+    is_in_force: isInForce
   }
 
   statuteUuid = await setStatute(statute)

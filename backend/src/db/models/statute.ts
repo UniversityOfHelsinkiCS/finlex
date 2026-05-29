@@ -8,8 +8,8 @@ export async function setStatute(statute: Statute) {
   if (!(existingResult.rows.length > 0 && existingResult.rows[0].version === statute.version)) {
     const deleteExisting = 'DELETE FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
     await query(deleteExisting, [statute.number, statute.year, statute.language]);
-    const sql = 'INSERT INTO statutes (uuid, title, number, year, language, version, content, is_empty) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (number, year, language) DO NOTHING';
-    await query(sql, [statute.uuid, statute.title, statute.number, statute.year, statute.language, statute.version, statute.content, statute.is_empty]);
+    const sql = 'INSERT INTO statutes (uuid, title, number, year, language, version, content, is_empty, is_in_force) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (number, year, language) DO NOTHING';
+    await query(sql, [statute.uuid, statute.title, statute.number, statute.year, statute.language, statute.version, statute.content, statute.is_empty, statute.is_in_force]);
     return statute.uuid;
   } else {
     return existingResult.rows[0].uuid;
@@ -23,7 +23,7 @@ export async function getStatuteCountByYear(year: number): Promise<number> {
 }
 
 export async function getStatutesByYear(year: number, language: string): Promise<StatuteListItem[]> {
-  const sql = 'SELECT title as "docTitle", number as "docNumber", year as "docYear", is_empty as "isEmpty", version as "docVersion" FROM statutes WHERE year = $1 AND language = $2 ORDER BY is_empty ASC, number ASC';
+  const sql = 'SELECT title as "docTitle", number as "docNumber", year as "docYear", is_empty as "isEmpty", version as "docVersion", is_in_force as "isInForce" FROM statutes WHERE year = $1 AND language = $2 ORDER BY is_empty ASC, number ASC';
   const result = await query(sql, [year, language]);
   return result.rows;
 }
@@ -36,7 +36,8 @@ export async function searchStatutesByKeywordAndLanguage(keyword: string, langua
       docNumber: result.number,
       docTitle: result.title,
       isEmpty: result.has_content === 0,
-      docVersion: result.version
+      docVersion: result.version,
+      isInForce: result.is_in_force === undefined ? null : result.is_in_force === 1
     }
   })
 }

@@ -30,6 +30,30 @@ const DocumentList = ({laws, frontsection, language}: DocumentListProps) => {
     whiteSpace: 'normal'
   }
 
+  const inForceStyle = {
+    display: 'inline-block',
+    padding: '1px 5px',
+    marginRight: '5px',
+    color: '#155724',
+    fontSize: '12px',
+    backgroundColor: '#d4edda',
+    border: '1px solid #c3e6cb',
+    borderRadius: '2px',
+    whiteSpace: 'normal'
+  }
+
+  const notInForceStyle = {
+    display: 'inline-block',
+    padding: '1px 5px',
+    marginRight: '5px',
+    color: '#721c24',
+    fontSize: '12px',
+    backgroundColor: '#f8d7da',
+    border: '1px solid #f5c6cb',
+    borderRadius: '2px',
+    whiteSpace: 'normal'
+  }
+
   const keywordStyle = {
     display: 'inline-block',
     padding: '1px 5px',
@@ -61,11 +85,15 @@ const DocumentList = ({laws, frontsection, language}: DocumentListProps) => {
   }
 
   const emptyTagName = language === 'fin' ? 'Tyhjä' : 'Tom'
+  const inForceName = language === 'fin' ? 'Ajantasainen' : 'Uppdaterad'
+  const notInForceName = language === 'fin' ? 'Kumottu' : 'Upphävd'
   return (
     <>
       { laws.map((law) =>
         <div style={listStyle} key={prepareKey(law)} >
           {law.isEmpty ? <span style={tagStyle}>{emptyTagName}</span> : ""}
+          {law.isInForce === true ? <span style={inForceStyle}>{inForceName}</span> : ""}
+          {law.isInForce === false ? <span style={notInForceStyle}>{notInForceName}</span> : ""}
           <a href={prepareLink(law)}>
             <b>{prepareLabel(law)}</b> {law.docTitle ? `- ${law.docTitle}` : ""}
           </a>

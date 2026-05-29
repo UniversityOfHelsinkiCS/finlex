@@ -175,6 +175,7 @@ async function ensureStatuteCollection(lang: string): Promise<string> {
       { name: "headings", type: "string[]", locale: lang_short },
       { name: "paragraphs", type: "string[]", locale: lang_short },
       { name: "has_content", type: "int32" },
+      { name: "is_in_force", type: "int32", optional: true },
     ],
     token_separators: ["-"],
   }
@@ -318,6 +319,7 @@ export async function syncStatutes(
           year   AS year,
           is_empty AS is_empty,
           version AS version,
+          is_in_force AS is_in_force,
           content::text AS content
       FROM statutes
       WHERE language = $1 AND year = $2
@@ -354,6 +356,7 @@ export async function syncStatutes(
           year_num: parseInt(row.year, 10),
           number: row.number,
           has_content: row.is_empty ? 0 : 1,
+          ...(row.is_in_force !== null ? { is_in_force: row.is_in_force ? 1 : 0 } : {}),
           common_names: commonNames,
           keywords: keywords,
           version: row.version ?? "",
@@ -517,6 +520,7 @@ export async function upsertStatuteByUuid(
           year   AS year,
           is_empty AS is_empty,
           version AS version,
+          is_in_force AS is_in_force,
           content::text AS content
       FROM statutes
       WHERE uuid = $1 AND language = $2
@@ -549,6 +553,7 @@ export async function upsertStatuteByUuid(
     year_num: parseInt(row.year, 10),
     number: row.number,
     has_content: row.is_empty ? 0 : 1,
+    ...(row.is_in_force !== null ? { is_in_force: row.is_in_force ? 1 : 0 } : {}),
     common_names: commonNames,
     keywords: keywords,
     version: row.version ?? "",
@@ -644,7 +649,7 @@ export async function searchStatutes(
     text_match_type: "max_weight",
     sort_by: "has_content:desc,_text_match:desc,year_num:desc",
     per_page: 20,
-    include_fields: "year_num,number,title,has_content,version",
+    include_fields: "year_num,number,title,has_content,version,is_in_force",
   }
 
   const client = await getTypesenseClient()
