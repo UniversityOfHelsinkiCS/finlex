@@ -465,32 +465,52 @@ async function normalizeStatuteTitlesByYear(year: number): Promise<number> {
 }
 
 async function backfillIsInForce(): Promise<{ updated: number; skipped: number }> {
+  const BATCH_SIZE = 200;
+  let updated = 0;
+  let skipped = 0;
+  let offset = 0;
+
   try {
     const client = await pool.connect();
-    const result = await client.query(
-      'SELECT uuid, content::text AS content, number, year, language FROM statutes WHERE is_in_force IS NULL'
-    );
-    let updated = 0;
-    let skipped = 0;
 
-    for (const row of result.rows) {
-      try {
-        const isInForce = await parseIsInForceFromXml(row.content);
-        if (isInForce !== null) {
-          await client.query('UPDATE statutes SET is_in_force = $1 WHERE uuid = $2', [isInForce, row.uuid]);
-          updated += 1;
-        } else {
+    const { rows: [{ count }] } = await client.query(
+      'SELECT COUNT(*) AS count FROM statutes WHERE is_in_force IS NULL'
+    );
+    const total = parseInt(count, 10);
+    console.log(`[backfill] is_in_force: ${total} statutes to process`);
+
+    while (true) {
+      const result = await client.query(
+        'SELECT uuid, content::text AS content, number, year, language FROM statutes WHERE is_in_force IS NULL ORDER BY uuid LIMIT $1 OFFSET $2',
+        [BATCH_SIZE, offset]
+      );
+
+      if (result.rows.length === 0) break;
+
+      for (const row of result.rows) {
+        try {
+          const isInForce = await parseIsInForceFromXml(row.content);
+          if (isInForce !== null) {
+            await client.query('UPDATE statutes SET is_in_force = $1 WHERE uuid = $2', [isInForce, row.uuid]);
+            updated += 1;
+          } else {
+            skipped += 1;
+          }
+        } catch (error) {
+          console.error(`Failed to backfill is_in_force for statute ${row.uuid} (${row.number}/${row.year}, ${row.language}):`, error);
+          Sentry.captureException(error);
           skipped += 1;
         }
-      } catch (error) {
-        console.error(`Failed to backfill is_in_force for statute ${row.uuid} (${row.number}/${row.year}, ${row.language}):`, error);
-        Sentry.captureException(error);
-        skipped += 1;
       }
+
+      offset += result.rows.length;
+      console.log(`[backfill] is_in_force: processed ${offset}/${total} (updated=${updated}, skipped=${skipped})`);
+
+      if (result.rows.length < BATCH_SIZE) break;
     }
 
     client.release();
-    console.log(`[backfill] is_in_force: updated ${updated}, skipped ${skipped} out of ${result.rows.length} statutes`);
+    console.log(`[backfill] is_in_force: done — updated ${updated}, skipped ${skipped} out of ${total} statutes`);
     return { updated, skipped };
   } catch (error) {
     console.error('Error backfilling is_in_force:', error);
