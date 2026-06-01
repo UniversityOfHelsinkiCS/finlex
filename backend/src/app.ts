@@ -17,7 +17,7 @@ import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
 import { printSyncSummary } from "./util/syncResults.js";
-import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, SyncResult } from './search.js';
+import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid, SyncResult } from './search.js';
 import { query, pool } from './db/db.js';
 
 const app = express()
@@ -200,6 +200,39 @@ app.post('/api/admin/add-statute', verifyAdminToken, async (req: express.Request
     console.error('Add statute endpoint error:', error);
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to add statute' });
+  }
+});
+
+app.delete('/api/admin/statute/:year/:number/:language', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const yearNum = parseInt(req.params.year, 10);
+    const numberStr = req.params.number.trim();
+    const languageStr = req.params.language.trim();
+
+    if (!yearNum || !numberStr || !VALID_LANGUAGES.includes(languageStr)) {
+      res.status(400).json({ error: 'Invalid parameters' });
+      return;
+    }
+
+    const existing = await query(
+      'SELECT uuid FROM statutes WHERE number = $1 AND year = $2 AND language = $3 LIMIT 1',
+      [numberStr, yearNum, languageStr]
+    );
+
+    if (existing.rows.length === 0) {
+      res.status(404).json({ error: 'Statute not found' });
+      return;
+    }
+
+    const uuid = existing.rows[0].uuid;
+    await deleteStatuteByUuid(languageStr, uuid);
+    await query('DELETE FROM statutes WHERE uuid = $1', [uuid]);
+
+    res.status(200).json({ message: 'Statute deleted', number: numberStr, year: yearNum, language: languageStr, uuid });
+  } catch (error) {
+    console.error('Delete statute endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to delete statute' });
   }
 });
 

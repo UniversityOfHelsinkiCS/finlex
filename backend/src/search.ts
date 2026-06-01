@@ -610,6 +610,22 @@ export async function upsertJudgmentByUuid(
   })
 }
 
+export async function deleteStatuteByUuid(lang: string, statuteUuid: string): Promise<void> {
+  const collectionName = `statutes_${lang}`
+  try {
+    const client = await getTypesenseClient()
+    await client.collections(collectionName).documents(statuteUuid).delete()
+    console.log(`Deleted statute ${statuteUuid} from ${collectionName}`)
+  } catch (err) {
+    if (!(err instanceof Errors.ObjectNotFound)) {
+      console.error(`Error deleting statute ${statuteUuid} from ${collectionName}:`, err)
+      Sentry.captureException(err)
+      throw err
+    }
+    console.log(`Statute ${statuteUuid} not found in ${collectionName}, skipping`)
+  }
+}
+
 export async function deleteCollection(name: string, lang: string) {
   const collectionName = `${name}_${lang}`
   try {
