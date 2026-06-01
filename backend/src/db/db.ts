@@ -468,7 +468,7 @@ async function backfillIsInForce(): Promise<{ updated: number; skipped: number }
   const BATCH_SIZE = 200;
   let updated = 0;
   let skipped = 0;
-  let offset = 0;
+  let processed = 0;
 
   try {
     const client = await pool.connect();
@@ -481,8 +481,8 @@ async function backfillIsInForce(): Promise<{ updated: number; skipped: number }
 
     while (true) {
       const result = await client.query(
-        'SELECT uuid, content::text AS content, number, year, language FROM statutes WHERE is_in_force IS NULL ORDER BY uuid LIMIT $1 OFFSET $2',
-        [BATCH_SIZE, offset]
+        'SELECT uuid, content::text AS content, number, year, language FROM statutes WHERE is_in_force IS NULL ORDER BY uuid LIMIT $1',
+        [BATCH_SIZE]
       );
 
       if (result.rows.length === 0) break;
@@ -503,14 +503,14 @@ async function backfillIsInForce(): Promise<{ updated: number; skipped: number }
         }
       }
 
-      offset += result.rows.length;
-      console.log(`[backfill] is_in_force: processed ${offset}/${total} (updated=${updated}, skipped=${skipped})`);
+      processed += result.rows.length;
+      console.log(`[backfill] is_in_force: processed ${processed}/${total} (updated=${updated}, skipped=${skipped})`);
 
       if (result.rows.length < BATCH_SIZE) break;
     }
 
     client.release();
-    console.log(`[backfill] is_in_force: done — updated ${updated}, skipped ${skipped} out of ${total} statutes`);
+    console.log(`[backfill] is_in_force: done — updated ${updated}, skipped ${skipped} out of ${processed} processed (${total} were null at start)`);
     return { updated, skipped };
   } catch (error) {
     console.error('Error backfilling is_in_force:', error);
