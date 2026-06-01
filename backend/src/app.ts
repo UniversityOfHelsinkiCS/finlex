@@ -521,7 +521,13 @@ app.get('/api/admin/is-in-force-stats', verifyAdminToken, async (req: express.Re
       GROUP BY decade
       ORDER BY decade
     `);
-    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows });
+    const byLanguage = await query(`
+      SELECT language, is_in_force, COUNT(*) AS count
+      FROM statutes
+      GROUP BY language, is_in_force
+      ORDER BY language, is_in_force NULLS LAST
+    `);
+    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows, byLanguage: byLanguage.rows });
   } catch (error) {
     console.error('is-in-force-stats error:', error);
     Sentry.captureException(error);
