@@ -527,7 +527,15 @@ app.get('/api/admin/is-in-force-stats', verifyAdminToken, async (req: express.Re
       GROUP BY language, is_in_force
       ORDER BY language, is_in_force NULLS LAST
     `);
-    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows, byLanguage: byLanguage.rows });
+    const nullFieldPresence = await query(`
+      SELECT
+        CASE WHEN content::text LIKE '%isInForce%' THEN 'field_in_xml' ELSE 'field_absent' END AS xml_check,
+        COUNT(*) AS count
+      FROM statutes
+      WHERE is_in_force IS NULL
+      GROUP BY xml_check
+    `);
+    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows, byLanguage: byLanguage.rows, nullFieldPresence: nullFieldPresence.rows });
   } catch (error) {
     console.error('is-in-force-stats error:', error);
     Sentry.captureException(error);
