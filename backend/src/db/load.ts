@@ -311,8 +311,11 @@ export async function parseIsInForceFromXml(xmlString: string): Promise<boolean 
 
     const parsed = parser.parse(xmlString);
 
+    const aknXmlListNode = parsed?.AknXmlList?.Results?.akomaNtoso;
+    const unwrapped = Array.isArray(aknXmlListNode) ? aknXmlListNode[0] : aknXmlListNode;
+
     const isInForceNode =
-      parsed?.AknXmlList?.Results?.akomaNtoso?.act?.meta?.proprietary?.isInForce ??
+      unwrapped?.act?.meta?.proprietary?.isInForce ??
       parsed?.akomaNtoso?.act?.meta?.proprietary?.isInForce ??
       null;
 

@@ -535,7 +535,15 @@ app.get('/api/admin/is-in-force-stats', verifyAdminToken, async (req: express.Re
       WHERE is_in_force IS NULL
       GROUP BY xml_check
     `);
-    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows, byLanguage: byLanguage.rows, nullFieldPresence: nullFieldPresence.rows });
+    const nullRootType = await query(`
+      SELECT
+        CASE WHEN content::text LIKE '%AknXmlList%' THEN 'wrapped_list' ELSE 'single_doc' END AS root_type,
+        COUNT(*) AS count
+      FROM statutes
+      WHERE is_in_force IS NULL
+      GROUP BY root_type
+    `);
+    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows, byLanguage: byLanguage.rows, nullFieldPresence: nullFieldPresence.rows, nullRootType: nullRootType.rows });
   } catch (error) {
     console.error('is-in-force-stats error:', error);
     Sentry.captureException(error);
