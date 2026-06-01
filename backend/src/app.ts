@@ -504,6 +504,24 @@ app.post('/api/admin/backfill-is-in-force', verifyAdminToken, async (req: expres
   }
 });
 
+app.get('/api/admin/is-in-force-stats', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const { rows } = await query(`
+      SELECT
+        is_in_force,
+        COUNT(*) AS count
+      FROM statutes
+      GROUP BY is_in_force
+      ORDER BY is_in_force NULLS LAST
+    `);
+    res.status(200).json(rows);
+  } catch (error) {
+    console.error('is-in-force-stats error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to get stats' });
+  }
+});
+
 app.get('/api/admin/check-title-issues', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
     const client = await pool.connect();
