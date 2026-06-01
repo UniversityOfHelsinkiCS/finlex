@@ -313,10 +313,11 @@ export async function parseIsInForceFromXml(xmlString: string): Promise<boolean 
 
     const aknXmlListNode = parsed?.AknXmlList?.Results?.akomaNtoso;
     const unwrapped = Array.isArray(aknXmlListNode) ? aknXmlListNode[0] : aknXmlListNode;
+    const root = unwrapped ?? parsed?.akomaNtoso;
 
     const isInForceNode =
-      unwrapped?.act?.meta?.proprietary?.isInForce ??
-      parsed?.akomaNtoso?.act?.meta?.proprietary?.isInForce ??
+      root?.act?.meta?.proprietary?.isInForce ??
+      root?.decree?.meta?.proprietary?.isInForce ??
       null;
 
     const value = isInForceNode?.['@_value'];
