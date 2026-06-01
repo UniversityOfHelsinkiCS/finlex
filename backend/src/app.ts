@@ -506,15 +506,22 @@ app.post('/api/admin/backfill-is-in-force', verifyAdminToken, async (req: expres
 
 app.get('/api/admin/is-in-force-stats', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
-    const { rows } = await query(`
-      SELECT
-        is_in_force,
-        COUNT(*) AS count
+    const summary = await query(`
+      SELECT is_in_force, COUNT(*) AS count
       FROM statutes
       GROUP BY is_in_force
       ORDER BY is_in_force NULLS LAST
     `);
-    res.status(200).json(rows);
+    const nullByDecade = await query(`
+      SELECT
+        (year / 10 * 10) AS decade,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE is_in_force IS NULL) AS missing
+      FROM statutes
+      GROUP BY decade
+      ORDER BY decade
+    `);
+    res.status(200).json({ summary: summary.rows, nullByDecade: nullByDecade.rows });
   } catch (error) {
     console.error('is-in-force-stats error:', error);
     Sentry.captureException(error);
