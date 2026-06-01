@@ -2,27 +2,11 @@
 
 Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotantoprojekti/SEB-yhteensopiva_finlex-lukija/wiki) (Osittain vanhentunut)
 
-
 ## Local dev
 
 ```
 docker compose up
 ```
-
-## To Do
-
-20.5. Muistiinpanoja ajantasaisuus/kumottu fikseistä
-- Ajantasaisuus/kumottu-leima lienee triviaali, löytyy xml:stä true/false-lippu tyyliin:
-```
-<proprietary source="#organization_fi.finlex">
-<finlex:documentYear>2014</finlex:documentYear>
-<finlex:administrativeBranch refersTo="#fi.ministry-of-the-environment"/>
-<finlex:typeStatute refersTo="#act"/>
-<finlex:isInForce value="true"/>
-```
-- pitää ehkä kumota tietokannan täytöstä kohta joka jättää kumotut pois?
-- 603/1977 mystisempi, tenttilexin versio ajantasainen, mutta vanha ajantasainen?
-
 
 ## Tietokannan päivitys/synkronointi
 
