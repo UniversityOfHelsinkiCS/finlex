@@ -29,6 +29,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const [docTitle, setDocTitle] = useState<string>("Tenttilex")
   const [law, setLaw] = useState<string>("")
+  const [isInForce, setIsInForce] = useState<boolean | null>(null)
   const [headings, setHeadings] = useState<Headings[]>([])
   const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
@@ -649,7 +650,10 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
       if (apipath !== "statute") {
         keywordsPath = `${keywordsPath}/${doclevel}`
       }
-      return { docPath, structurePath, keywordsPath }
+      const metaPath = apipath === "statute"
+        ? `/api/${apipath}/meta/id/${docyear}/${docnumber}/${currentLanguage}`
+        : null
+      return { docPath, structurePath, keywordsPath, metaPath }
     },
     [apipath, docyear, docnumber, doclevel],
   )
@@ -744,6 +748,15 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     setActiveSearchMatchIndex(0)
   }
 
+  const getMeta = async (metaPath: string) => {
+    try {
+      const response = await axios.get(metaPath)
+      setIsInForce(response.data.isInForce ?? null)
+    } catch {
+      setIsInForce(null)
+    }
+  }
+
   const getHeadings = async (structurePath: string) => {
     try {
       const response = await axios.get(structurePath)
@@ -779,7 +792,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
       return
     }
 
-    const { docPath, structurePath, keywordsPath } = buildPaths(lan)
+    const { docPath, structurePath, keywordsPath, metaPath } = buildPaths(lan)
     if (apipath === "statute") {
       getLawHtml(docPath)
     } else {
@@ -787,6 +800,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     }
     getHeadings(structurePath)
     getKeywords(keywordsPath)
+    if (metaPath) getMeta(metaPath)
   }, [
     apipath,
     docnumber,
@@ -962,6 +976,31 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
                           {savePageTooltip}
                         </span>
                       )}
+                    </span>
+                  </div>
+                )}
+                {apipath === "statute" && isInForce !== null && (
+                  <div style={{ marginBottom: "8px" }}>
+                    <span style={isInForce ? {
+                      display: "inline-block",
+                      padding: "2px 8px",
+                      color: "#155724",
+                      fontSize: "18px",
+                      backgroundColor: "#d4edda",
+                      border: "1px solid #c3e6cb",
+                      borderRadius: "3px",
+                    } : {
+                      display: "inline-block",
+                      padding: "2px 8px",
+                      color: "#721c24",
+                      fontSize: "18px",
+                      backgroundColor: "#f8d7da",
+                      border: "1px solid #f5c6cb",
+                      borderRadius: "3px",
+                    }}>
+                      {isInForce
+                        ? (lan === "fin" ? "Ajantasainen" : "Uppdaterad")
+                        : (lan === "fin" ? "Kumottu" : "Upphävd")}
                     </span>
                   </div>
                 )}

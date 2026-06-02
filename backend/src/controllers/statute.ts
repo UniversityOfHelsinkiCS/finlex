@@ -3,7 +3,7 @@ import * as Sentry from '@sentry/node';
 import { parseStringPromise } from 'xml2js';
 import { parseXmlHeadings } from '../util/parse.js';
 import * as config from '../util/config.js';
-import { getStatuteByNumberYear, getStatuteKeywordsByNumberYear, getStatutesByYear, searchStatutesByKeywordAndLanguage } from '../db/models/statute.js';
+import { getStatuteByNumberYear, getStatuteKeywordsByNumberYear, getStatuteMetaByNumberYear, getStatutesByYear, searchStatutesByKeywordAndLanguage } from '../db/models/statute.js';
 const statuteRouter = express.Router();
 
 statuteRouter.get('/structure/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
@@ -46,6 +46,23 @@ statuteRouter.get('/id/:year/:number/:language', async (request: express.Request
   }
   response.setHeader('Content-Type', 'application/xml')
   response.send(content)
+})
+
+statuteRouter.get('/meta/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {
+  const year = parseInt(request.params.year as string)
+  const language = request.params.language as string
+  const number = request.params.number as string
+  try {
+    const meta = await getStatuteMetaByNumberYear(number, year, language)
+    if (meta === null) {
+      response.status(404).json({ error: 'Not found' })
+      return
+    }
+    response.json(meta)
+  } catch (error) {
+    console.error('Error fetching statute meta', error)
+    response.status(500).json({ error: 'Internal server error' })
+  }
 })
 
 statuteRouter.get('/keywords/id/:year/:number/:language', async (request: express.Request, response: express.Response): Promise<void> => {

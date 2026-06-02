@@ -48,6 +48,13 @@ export async function getStatuteByNumberYear(number: string, year: number, langu
   return result.rows[0]?.content || null;
 }
 
+export async function getStatuteMetaByNumberYear(number: string, year: number, language: string): Promise<{ isInForce: boolean | null } | null> {
+  const sql = 'SELECT is_in_force as "isInForce" FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
+  const result = await query(sql, [number, year, language]);
+  if (!result.rows[0]) return null;
+  return { isInForce: result.rows[0].isInForce ?? null };
+}
+
 export async function getStatuteKeywordsByNumberYear(number: string, year: number, language: string): Promise<{ id: string, keyword: string }[]> {
   const sql = `
     SELECT ks.id, ks.keyword
