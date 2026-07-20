@@ -1,7 +1,7 @@
 name: Build and push docker image (production)
 
 on:
-  push:
+  release:
     branches:
       - main
 jobs:

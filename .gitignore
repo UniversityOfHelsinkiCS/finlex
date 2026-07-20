@@ -7,7 +7,6 @@
 **/node_modules
 **/.venv
 **/.git
-**/.github
 **/.vscode
 **/.idea
 **/.zed
