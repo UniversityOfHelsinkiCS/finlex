@@ -11,13 +11,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Login to DockerHub
+      - name: Login to version helsinki
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USER }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          registry: registry.version.helsinki.fi
+          username: kontit
+          password: ${{ secrets.VERSION_PUSH_SECRET }}
       
       - name: Build and push the Docker image
         run: |-
-           docker build -t toska/finlex:production .
-           docker push toska/finlex:production
+           docker build -t registry.version.helsinki.fi/toska/openshift/kontit/finlex:production .
+           docker push registry.version.helsinki.fi/toska/openshift/kontit/finlex:production
+
