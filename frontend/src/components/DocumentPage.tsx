@@ -67,18 +67,38 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
   const isCompactViewport =
     typeof window !== "undefined" && window.innerWidth < 1000
   const hasTableOfContents = headings.length > 0
+
+  // Panel widths when expanded. The document column is sized from these rather
+  // than from the panels' current state, so collapsing a panel never changes the
+  // text measure — otherwise the body re-wraps on every toggle and the reader
+  // loses their place. The reclaimed space goes to the outer margins instead.
+  // tocColumnWidth/searchColumnWidth are derived from these so the grid
+  // reservation cannot drift out of sync with the panels it reserves for.
+  const expandedTocWidth = hasTableOfContents
+    ? isCompactViewport
+      ? 180
+      : 260
+    : 0
+  const expandedSearchWidth = isCompactViewport ? 200 : 272
+  const collapsedPanelWidth = 24
+
   const tocColumnWidth = hasTableOfContents
     ? isTocVisible
-      ? isCompactViewport
-        ? "200px"
-        : "320px"
-      : "24px"
+      ? `${expandedTocWidth}px`
+      : `${collapsedPanelWidth}px`
     : "0px"
   const searchColumnWidth = isSearchVisible
-    ? isCompactViewport
-      ? "200px"
-      : "272px"
-    : "24px"
+    ? `${expandedSearchWidth}px`
+    : `${collapsedPanelWidth}px`
+
+  const contentColumnGap = 12
+  const contentOuterMargin = 4
+  const reservedSideWidth =
+    expandedTocWidth +
+    expandedSearchWidth +
+    contentColumnGap * 4 +
+    contentOuterMargin * 2
+  const docBodyColumnWidth = `max(0px, calc(100% - ${reservedSideWidth}px))`
 
   const topStyle: React.CSSProperties = {
     display: "flex",
@@ -122,7 +142,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const contentBlockStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: `4px ${tocColumnWidth} minmax(0, 1fr) ${searchColumnWidth} 4px`,
+    gridTemplateColumns: `minmax(${contentOuterMargin}px, 1fr) ${tocColumnWidth} minmax(0, ${docBodyColumnWidth}) ${searchColumnWidth} minmax(${contentOuterMargin}px, 1fr)`,
     columnGap: "12px",
     alignItems: "start",
     width: "100%",
@@ -171,23 +191,11 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     border: "0px solid pink",
   }
 
-  const docBodyExpandedStyle: React.CSSProperties = {
-    gridColumn: "3 / 4",
-  }
-
-  const docBodyWithSearchHiddenStyle: React.CSSProperties = {
-    gridColumn: "3 / 4",
-  }
-
-  const docBodyExpandedWithSearchHiddenStyle: React.CSSProperties = {
-    gridColumn: "3 / 4",
-  }
-
   const searchPanelStyle: React.CSSProperties = {
     gridColumn: "4 / 5",
     gridRow: "1 / 2",
     width: "100%",
-    maxWidth: "272px",
+    maxWidth: `${expandedSearchWidth}px`,
     margin: "6px 0px 6px 0px",
     display: "flex",
     flexDirection: "column",
@@ -930,18 +938,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
               <div
                 id="documentbodydiv"
-                style={
-                  isTocVisible
-                    ? isSearchVisible
-                      ? docBodyStyle
-                      : { ...docBodyStyle, ...docBodyWithSearchHiddenStyle }
-                    : isSearchVisible
-                      ? { ...docBodyStyle, ...docBodyExpandedStyle }
-                      : {
-                          ...docBodyStyle,
-                          ...docBodyExpandedWithSearchHiddenStyle,
-                        }
-                }
+                style={docBodyStyle}
               >
                 {(apipath === "statute" || apipath === "judgment") && (
                   <div style={documentActionsStyle}>

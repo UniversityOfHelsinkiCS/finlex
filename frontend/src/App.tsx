@@ -94,7 +94,7 @@ const App = () => {
   if (appReady || isExemptRoute()) {
     return (
       <Router>
-        <div style={!isExemptRoute() ? { paddingBottom: '60px' } : undefined}>
+        <div style={!isExemptRoute() ? { paddingBottom: '44px' } : undefined}>
 
           <Helmet>
             <title>Tenttilex</title>

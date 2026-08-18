@@ -10,8 +10,16 @@ const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
   const browserPath =
     typeof window !== "undefined" ? window.location.pathname : pathname
   const normalizedPath = browserPath.replace(/\/+$/, "") || "/"
-  const showFooter =
+  // List pages, plus the document pages themselves:
+  //   statute  /lainsaadanto/:year/:id
+  //   judgment /oikeuskaytanto/:year/:id/:level
+  // The :year segment is numeric, which keeps /lainsaadanto/asiasanat/:id out.
+  const isListPath =
     normalizedPath === "/lainsaadanto" || normalizedPath === "/oikeuskaytanto"
+  const isDocumentPath =
+    /^\/lainsaadanto\/\d+\/[^/]+$/.test(normalizedPath) ||
+    /^\/oikeuskaytanto\/\d+\/[^/]+\/[^/]+$/.test(normalizedPath)
+  const showFooter = isListPath || isDocumentPath
 
   const style: React.CSSProperties = {
     position: "fixed" as const,
@@ -20,8 +28,9 @@ const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
     width: "100%",
     background: "#f5f5f5",
     color: "#333",
-    padding: "6px 12px",
-    fontSize: "12px",
+    padding: "4px 12px",
+    fontSize: "11px",
+    lineHeight: 1.35,
     textAlign: "center" as const,
     borderTop: "1px solid #e0e0e0",
     zIndex: 1000,
