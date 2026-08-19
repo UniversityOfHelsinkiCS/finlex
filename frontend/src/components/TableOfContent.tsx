@@ -125,7 +125,7 @@ const TableOfContent = ({headings}: {headings: Headings[]}) => {
 
   const autoscrollStyle: React.CSSProperties = {
     overflow: 'auto',
-    height: 'calc(100vh - 115px)',
+    height: 'calc(100vh - 100px)',
     width: '100%',
     display: 'flex',
     backgroundColor: '#E7F1FA',

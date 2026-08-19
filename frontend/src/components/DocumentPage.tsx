@@ -1,6 +1,6 @@
 import axios from "axios"
 import type { Headings, DocumentPageProps } from "../types"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import TableOfContent from "./TableOfContent"
 import { useParams } from "react-router-dom"
 import { Helmet } from "react-helmet"
@@ -64,16 +64,41 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     }
   })
 
+  // Element the reader was looking at when a panel was toggled, plus its offset
+  // from the top of the viewport, so the reflow can be undone visually.
+  const scrollAnchorRef = useRef<{ element: HTMLElement; top: number } | null>(
+    null,
+  )
+
+  // Runs after the new column widths are applied but before paint, so the
+  // correction is never visible as a jump.
+  useLayoutEffect(() => {
+    const anchor = scrollAnchorRef.current
+    if (!anchor) {
+      return
+    }
+    scrollAnchorRef.current = null
+
+    if (!anchor.element.isConnected) {
+      return
+    }
+
+    const delta = anchor.element.getBoundingClientRect().top - anchor.top
+    if (delta !== 0) {
+      window.scrollBy(0, delta)
+    }
+  }, [isTocVisible, isSearchVisible])
+
   const isCompactViewport =
     typeof window !== "undefined" && window.innerWidth < 1000
   const hasTableOfContents = headings.length > 0
 
-  // Panel widths when expanded. The document column is sized from these rather
-  // than from the panels' current state, so collapsing a panel never changes the
-  // text measure — otherwise the body re-wraps on every toggle and the reader
-  // loses their place. The reclaimed space goes to the outer margins instead.
-  // tocColumnWidth/searchColumnWidth are derived from these so the grid
-  // reservation cannot drift out of sync with the panels it reserves for.
+  // Panel widths when expanded. The document column is minmax(0, 1fr), so
+  // collapsing a panel hands its width to the body rather than leaving dead
+  // margin. That re-wraps the text, which on its own would throw the reader's
+  // place away — captureScrollAnchor/useLayoutEffect below put it back.
+  // searchPanelStyle derives its maxWidth from these so the panel and the
+  // column it lives in cannot drift apart.
   const expandedTocWidth = hasTableOfContents
     ? isCompactViewport
       ? 180
@@ -91,14 +116,13 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     ? `${expandedSearchWidth}px`
     : `${collapsedPanelWidth}px`
 
-  const contentColumnGap = 12
   const contentOuterMargin = 4
-  const reservedSideWidth =
-    expandedTocWidth +
-    expandedSearchWidth +
-    contentColumnGap * 4 +
-    contentOuterMargin * 2
-  const docBodyColumnWidth = `max(0px, calc(100% - ${reservedSideWidth}px))`
+
+  // Ceiling on the reading measure. It only binds once the column is wider than
+  // this — on a laptop with both panels open the body is well under it and uses
+  // every pixel, while on a wide screen with the panels collapsed the surplus
+  // becomes margin instead of an unreadably long line.
+  const docBodyMaxWidth = 1000
 
   const topStyle: React.CSSProperties = {
     display: "flex",
@@ -142,7 +166,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const contentBlockStyle: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: `minmax(${contentOuterMargin}px, 1fr) ${tocColumnWidth} minmax(0, ${docBodyColumnWidth}) ${searchColumnWidth} minmax(${contentOuterMargin}px, 1fr)`,
+    gridTemplateColumns: `${contentOuterMargin}px ${tocColumnWidth} minmax(0, 1fr) ${searchColumnWidth} ${contentOuterMargin}px`,
     columnGap: "12px",
     alignItems: "start",
     width: "100%",
@@ -186,8 +210,9 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     gridColumn: "3 / 4",
     gridRow: "1 / 2",
     width: "100%",
+    maxWidth: `${docBodyMaxWidth}px`,
     minWidth: "0",
-    margin: "10px 0px",
+    margin: "10px auto",
     border: "0px solid pink",
   }
 
@@ -533,8 +558,33 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     }
   }
 
+  // Remember where the reader is before a toggle re-wraps the body, so the
+  // layout effect below can restore it. Anchoring on a content element rather
+  // than on scrollY is what makes this survive the reflow.
+  const captureScrollAnchor = () => {
+    scrollAnchorRef.current = null
+    const body = document.getElementById("documentbodydiv")
+    if (!body) {
+      return
+    }
+
+    const threshold = 60
+    const candidates = Array.from(
+      body.querySelectorAll<HTMLElement>("p, h1, h2, h3, h4, h5, h6, table, li"),
+    )
+
+    for (const element of candidates) {
+      const rect = element.getBoundingClientRect()
+      if (rect.height > 0 && rect.bottom > threshold) {
+        scrollAnchorRef.current = { element, top: rect.top }
+        return
+      }
+    }
+  }
+
   const handleTocToggle = () => {
     const nextValue = !isTocVisible
+    captureScrollAnchor()
     setIsTocVisible(nextValue)
     try {
       localStorage.setItem(tocVisibilityStorageKey, String(nextValue))
@@ -545,6 +595,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
   const handleSearchToggle = () => {
     const nextValue = !isSearchVisible
+    captureScrollAnchor()
     setIsSearchVisible(nextValue)
     try {
       localStorage.setItem(searchVisibilityStorageKey, String(nextValue))

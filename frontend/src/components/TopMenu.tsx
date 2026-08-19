@@ -112,12 +112,14 @@ const TopMenu = ({ language, handleSelect }: TopMenuProps) => {
     position: "relative",
   }
 
+  // Same shape as the side toggle buttons in DocumentPage; colours stay
+  // white-on-blue because this one sits in the blue top bar.
   const savedPagesSummaryStyle: React.CSSProperties = {
     color: "#fefefe",
     fontSize: "13px",
-    border: "2px solid rgba(255,255,255,0.55)",
-    borderRadius: "10px",
-    padding: "3px 10px",
+    border: "1px solid rgba(255,255,255,0.55)",
+    borderRadius: "4px",
+    padding: "4px 8px",
     whiteSpace: "nowrap",
     cursor: "pointer",
     listStyle: "none",

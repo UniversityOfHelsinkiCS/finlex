@@ -16,6 +16,7 @@ import axios from 'axios'
 import YearDocumentList from './components/YearDocumentList'
 import YearsPage from './components/YearsPage'
 import FooterDisclaimer from './components/FooterDisclaimer'
+import BackToTopButton from './components/BackToTopButton'
 
 
 const App = () => {
@@ -61,6 +62,19 @@ const App = () => {
     width: '300px',
   }
 
+  // Sticky footer shell: the routed page grows to fill anything left over, so a
+  // short results page still pushes the disclaimer to the bottom of the window
+  // while a long document simply lets it follow the content.
+  const appShellStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    minHeight: '100vh',
+  }
+
+  const routedPageStyle: React.CSSProperties = {
+    flex: '1 0 auto',
+  }
+
   const isExemptRoute = () => {
     const path = window.location.pathname
     return path === "/admin" ||
@@ -94,11 +108,12 @@ const App = () => {
   if (appReady || isExemptRoute()) {
     return (
       <Router>
-        <div style={!isExemptRoute() ? { paddingBottom: '44px' } : undefined}>
+        <div style={appShellStyle}>
 
           <Helmet>
             <title>Tenttilex</title>
           </Helmet>
+          <div style={routedPageStyle}>
           <Routes>
             <Route key="listpage" path="/lainsaadanto/" element={<ListDocumentPage language={language} setLanguage={setLanguage} buttonetext={buttontext}
               apisection="statute"
@@ -137,7 +152,9 @@ const App = () => {
             <Route key="admin" path="/summary" element={<YearsPage />} />
             <Route key="admin" path="/admin" element={<AdminPage language={language} />} />
           </Routes>
+          </div>
           {!isExemptRoute() && <FooterDisclaimer language={language} />}
+          {!isExemptRoute() && <BackToTopButton language={language} />}
         </div>
       </Router>
     )

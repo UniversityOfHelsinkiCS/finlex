@@ -21,19 +21,18 @@ const FooterDisclaimer = ({ language }: FooterDisclaimerProps) => {
     /^\/oikeuskaytanto\/\d+\/[^/]+\/[^/]+$/.test(normalizedPath)
   const showFooter = isListPath || isDocumentPath
 
+  // Sits at the end of the page content rather than pinned to the viewport, so
+  // it does not eat vertical space while reading.
   const style: React.CSSProperties = {
-    position: "fixed" as const,
-    bottom: 0,
-    left: 0,
     width: "100%",
+    marginTop: "24px",
     background: "#f5f5f5",
     color: "#333",
-    padding: "4px 12px",
+    padding: "8px 12px",
     fontSize: "11px",
     lineHeight: 1.35,
     textAlign: "center" as const,
     borderTop: "1px solid #e0e0e0",
-    zIndex: 1000,
     boxSizing: "border-box",
   }
 
