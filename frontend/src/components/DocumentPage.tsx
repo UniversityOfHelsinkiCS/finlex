@@ -31,6 +31,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
   const [law, setLaw] = useState<string>("")
   const [isInForce, setIsInForce] = useState<boolean | null>(null)
   const [headings, setHeadings] = useState<Headings[]>([])
+  const [collapsedChapterIds, setCollapsedChapterIds] = useState<Set<string>>(new Set())
   const [keywords, setKeywords] = useState<DocumentKeyword[]>([])
   const [lan, setLan] = useState<string>(language)
   const [backButtonHovered, setBackButtonHovered] = useState<boolean>(false)
@@ -381,6 +382,28 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     marginLeft: "auto",
   }
 
+  const tocToggleRowStyle: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: "6px",
+    marginBottom: "8px",
+  }
+
+  const tocCollapseAllRowStyle: React.CSSProperties = {
+    display: "flex",
+    gap: "6px",
+  }
+
+  const tocCollapseAllButtonStyle: React.CSSProperties = {
+    ...sideToggleButtonStyle,
+    flex: "1 1 0",
+    width: "auto",
+    marginBottom: "0px",
+    padding: "4px 6px",
+    fontSize: "12px",
+    textAlign: "center",
+  }
+
   const collapsedSidebarToggleButtonStyle: React.CSSProperties = {
     color: "#FFFFFF",
     textDecoration: "none",
@@ -445,6 +468,22 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     return isTocVisible
       ? "Dölj innehållsförteckning"
       : "Visa innehållsförteckning"
+  }
+
+  const getExpandAllTocButtonText = () => {
+    return lan === "fin" ? "Avaa kaikki" : "Öppna alla"
+  }
+
+  const getCollapseAllTocButtonText = () => {
+    return lan === "fin" ? "Sulje kaikki" : "Stäng alla"
+  }
+
+  const handleExpandAllToc = () => {
+    setCollapsedChapterIds(new Set())
+  }
+
+  const handleCollapseAllToc = () => {
+    setCollapsedChapterIds(new Set(headings.map((section) => section.id)))
   }
 
   const getSearchToggleButtonText = () => {
@@ -820,6 +859,7 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
     try {
       const response = await axios.get(structurePath)
       setHeadings(response.data)
+      setCollapsedChapterIds(new Set())
     } catch (error) {
       console.error(error)
     }
@@ -971,19 +1011,49 @@ const DocumentPage = ({ language, apipath }: DocumentPageProps) => {
 
               {hasTableOfContents && (
                 <div id="leftMargin" style={tocStyle}>
-                  <button
-                    onClick={handleTocToggle}
-                    style={
-                      isTocVisible
-                        ? sideToggleButtonStyle
-                        : collapsedTocButtonStyle
-                    }
-                    aria-pressed={isTocVisible}
-                    aria-label={getTocButtonText()}
-                  >
-                    {getTocButtonText()}
-                  </button>
-                  {isTocVisible && <TableOfContent headings={headings} />}
+                  {isTocVisible ? (
+                    <div style={tocToggleRowStyle}>
+                      <button
+                        onClick={handleTocToggle}
+                        style={sideToggleButtonStyle}
+                        aria-pressed={isTocVisible}
+                        aria-label={getTocButtonText()}
+                      >
+                        {getTocButtonText()}
+                      </button>
+                      <div style={tocCollapseAllRowStyle}>
+                        <button
+                          onClick={handleExpandAllToc}
+                          style={tocCollapseAllButtonStyle}
+                        >
+                          {getExpandAllTocButtonText()}
+                        </button>
+                        <button
+                          onClick={handleCollapseAllToc}
+                          style={tocCollapseAllButtonStyle}
+                        >
+                          {getCollapseAllTocButtonText()}
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleTocToggle}
+                      style={collapsedTocButtonStyle}
+                      aria-pressed={isTocVisible}
+                      aria-label={getTocButtonText()}
+                    >
+                      {getTocButtonText()}
+                    </button>
+                  )}
+                  {isTocVisible && (
+                    <TableOfContent
+                      headings={headings}
+                      lan={lan}
+                      collapsedChapterIds={collapsedChapterIds}
+                      setCollapsedChapterIds={setCollapsedChapterIds}
+                    />
+                  )}
                 </div>
               )}
 
