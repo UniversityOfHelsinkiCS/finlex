@@ -1,6 +1,6 @@
 # SEB-yhteensopiva_finlex-lukija
 
-Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotantoprojekti/SEB-yhteensopiva_finlex-lukija/wiki) (Osittain vanhentunut)
+Projektin dokumentaatio löytyy [Wikistä](https://github.com/ohjelmistotuotantoprojekti/SEB-yhteensopiva_finlex-lukija/wiki) (osittain vanhentunut)
 
 ## Local dev
 
