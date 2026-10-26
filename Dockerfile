@@ -1,4 +1,4 @@
-FROM docker.io/node:24.0.2
+FROM docker.io/node:24-alpine
 WORKDIR /app
 
 COPY frontend ./frontend/
