@@ -1,7 +1,7 @@
 import * as Sentry from '@sentry/node';
 import { Pool, QueryResult } from 'pg';
 import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment, parseTitleFromXmlString, parseIsInForceFromXml } from './load.js';
-import { getStatuteCountByYear, getStatutesByYear } from './models/statute.js';
+import { getStatutesByYear } from './models/statute.js';
 import { getJudgmentCountByYear, getJudgmentsByYear } from './models/judgment.js';
 import { StatuteKey } from '../types/statute.js';
 import { JudgmentKey } from '../types/judgment.js';
@@ -88,26 +88,6 @@ async function dbIsReady(): Promise<boolean> {
 
 async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, statutes: StatuteKey[], judgments: JudgmentKey[]}> {
   console.log('Checking if database is up to date...');
-
-  async function compareStatuteCount(year: number): Promise<boolean> {
-    const expectedFin = await listStatutesByYear(year, 'fin');
-    const expectedSwe = await listStatutesByYear(year, 'swe');
-    const expectedCount = expectedFin.length + expectedSwe.length;
-    if (expectedCount === 0) {
-      return true;
-    }
-
-    const existingCount = await getStatuteCountByYear(year);
-    if (existingCount > expectedCount) {
-      console.warn(`In DB too many statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
-    } else if (existingCount < expectedCount) {
-      console.log(`In DB too few statutes for year ${year}: ${existingCount}, expected ${expectedCount}.`);
-    } else {
-      console.debug(`In DB correct number of statutes for year ${year}: ${existingCount}`);
-    }
-
-    return existingCount === expectedCount;
-  }
 
   async function compareJudgmentCount(year: number): Promise<boolean> {
     const expectedFinKKO = await listJudgmentsByYear(year, 'fin', 'kko');
@@ -222,9 +202,11 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
     const start = startYear ?? yearFrom()
     for (let year = start; year <= currentYear + 1; year++) {
 
-      if (!await compareStatuteCount(year)) {
-        console.log(`Statutes for year ${year} are not up to date`);
-        statutes.push(...await findMissingStatutes(year));
+      // compare versions, not just counts: a new consolidated version does not change the count
+      const missingStatutes = await findMissingStatutes(year);
+      if (missingStatutes.length > 0) {
+        console.log(`Statutes for year ${year} are not up to date: ${missingStatutes.length} missing or outdated`);
+        statutes.push(...missingStatutes);
         upToDate = false;
       }
 

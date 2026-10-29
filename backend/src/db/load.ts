@@ -715,7 +715,10 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
 
   const is_empty = await checkIsXMLEmpty(xmlContent);
 
-  const { docYear, docNumber, docLanguage, docVersion } = parseFinlexUrl(uri)
+  const { docYear, docNumber, docLanguage, docVersion: uriVersion } = parseFinlexUrl(uri)
+  // uri is usually versionless (latest), so take the version from uriOld; otherwise
+  // the version would be stored as null and setStatute would never replace old content
+  const docVersion = uriVersion ?? (uriOld ? parseFinlexUrl(uriOld).docVersion : null)
   let statuteUuid = uuidv4()
   const statute: Statute = {
     uuid: statuteUuid,
