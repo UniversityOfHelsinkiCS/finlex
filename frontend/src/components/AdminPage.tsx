@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import StatuteComparePanel from './StatuteComparePanel'
 import axios from 'axios'
 import AdminLogin from './AdminLogin'
 
@@ -602,6 +603,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
               </div>
             </div>
           </div>
+
+          <StatuteComparePanel language={language} buttonStyle={buttonStyle} disabled={isUpdating || isClearing} />
 
           {message && (
             <div style={successStyle}>

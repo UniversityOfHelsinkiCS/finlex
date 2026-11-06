@@ -118,7 +118,8 @@
 
         <xsl:variable name="ovl"
                       select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
-        <xsl:if test="$ovl">
+        <!-- the heading may already contain the label as a <ref>; do not repeat it -->
+        <xsl:if test="$ovl and not(contains(akn:heading, $ovl))">
           <xsl:text> (</xsl:text>
           <xsl:value-of select="$ovl"/>
           <xsl:text>)</xsl:text>
@@ -135,7 +136,8 @@
 
         <xsl:variable name="ovl"
                       select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
-        <xsl:if test="$ovl">
+        <!-- the heading may already contain the label as a <ref>; do not repeat it -->
+        <xsl:if test="$ovl and not(contains(akn:heading, $ovl))">
           <xsl:text> (</xsl:text>
           <xsl:value-of select="$ovl"/>
           <xsl:text>)</xsl:text>
@@ -154,7 +156,7 @@
       <xsl:apply-templates/>
 
       <xsl:variable name="ovl" select="@finlex:originalVersionLabel"/>
-      <xsl:if test="$ovl">
+      <xsl:if test="$ovl and not(contains(., $ovl))">
         <xsl:text> (</xsl:text>
         <xsl:value-of select="$ovl"/>
         <xsl:text>)</xsl:text>
@@ -171,7 +173,8 @@
 
       <xsl:variable name="ovl"
                     select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
-      <xsl:if test="$ovl">
+      <!-- the heading may already contain the label as a <ref>; do not repeat it -->
+        <xsl:if test="$ovl and not(contains(akn:heading, $ovl))">
         <xsl:text> (</xsl:text>
         <xsl:value-of select="$ovl"/>
         <xsl:text>)</xsl:text>
@@ -193,7 +196,8 @@
 
           <xsl:variable name="ovl"
                         select="(akn:heading/@finlex:originalVersionLabel | @finlex:originalVersionLabel)[1]"/>
-          <xsl:if test="$ovl">
+          <!-- the heading may already contain the label as a <ref>; do not repeat it -->
+        <xsl:if test="$ovl and not(contains(akn:heading, $ovl))">
             <xsl:text> (</xsl:text>
             <xsl:value-of select="$ovl"/>
             <xsl:text>)</xsl:text>
@@ -213,6 +217,10 @@
     <div style="margin-top: 1em;">
       <xsl:value-of select="akn:num"/>
       <xsl:apply-templates select="*[not(self::akn:num)]"/>
+      <!-- an amended numbered item carries its own version label -->
+      <xsl:if test="@finlex:originalVersionLabel">
+        <span class="version-label"> (<xsl:value-of select="@finlex:originalVersionLabel"/>)</span>
+      </xsl:if>
     </div>
   </xsl:template>
 
@@ -220,6 +228,10 @@
     <div style="margin-left: 1em; margin-top: 1em;">
       <xsl:value-of select="akn:num"/>
       <xsl:apply-templates select="*[not(self::akn:num)]"/>
+      <!-- an amended numbered item carries its own version label -->
+      <xsl:if test="@finlex:originalVersionLabel">
+        <span class="version-label"> (<xsl:value-of select="@finlex:originalVersionLabel"/>)</span>
+      </xsl:if>
     </div>
   </xsl:template>
 
@@ -241,6 +253,14 @@
         </span>
       </xsl:if>
     </p>
+  </xsl:template>
+
+  <!-- an amended intro ("Tässä laissa tarkoitetaan:") carries its own version label -->
+  <xsl:template match="akn:intro">
+    <xsl:apply-templates/>
+    <xsl:if test="@finlex:originalVersionLabel">
+      <span class="version-label"> (<xsl:value-of select="@finlex:originalVersionLabel"/>)</span>
+    </xsl:if>
   </xsl:template>
 
   <xsl:template match="akn:content">

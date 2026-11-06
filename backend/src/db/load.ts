@@ -116,12 +116,16 @@ function parseFinlexUrl(url: string): { docYear: number; docNumber: string; docL
   }
 }
 
+// uri is the version listed as latest by Finlex; uriOld is the versionless uri, used only as a
+// fallback. Note that the versionless uri ("…/fin@") does NOT return the latest consolidated
+// version but an older text, so it must not be preferred.
 function buildFinlexUrl(statute: StatuteKey): { uri: string, uriOld: string }  {
   const baseUrl = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act'
+  const versionless = `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@`
 
   return {
-    uri: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@`,
-    uriOld: `${baseUrl}/statute-consolidated/${statute.year}/${statute.number}/${statute.language}@${statute.version ? statute.version : ''}`
+    uri: `${versionless}${statute.version ? statute.version : ''}`,
+    uriOld: versionless
   };
 }
 
@@ -695,8 +699,10 @@ async function fetchStatute(uri: string) {
 
 async function setSingleStatute(uris : { uri: string, uriOld: string}) {
   const { uri, uriOld } = uris
+  let fetchedUri = uri
   let result = await fetchStatute(uri)
   if (!result) {
+    fetchedUri = uriOld
     result = await fetchStatute(uriOld)
     if (!result) {
       console.log(' --> not found: ', uri)
@@ -715,10 +721,9 @@ async function setSingleStatute(uris : { uri: string, uriOld: string}) {
 
   const is_empty = await checkIsXMLEmpty(xmlContent);
 
-  const { docYear, docNumber, docLanguage, docVersion: uriVersion } = parseFinlexUrl(uri)
-  // uri is usually versionless (latest), so take the version from uriOld; otherwise
-  // the version would be stored as null and setStatute would never replace old content
-  const docVersion = uriVersion ?? (uriOld ? parseFinlexUrl(uriOld).docVersion : null)
+  // store the version of the content actually fetched: if only the versionless fallback
+  // worked, the version is null and the next sync tries the listed version again
+  const { docYear, docNumber, docLanguage, docVersion } = parseFinlexUrl(fetchedUri)
   let statuteUuid = uuidv4()
   const statute: Statute = {
     uuid: statuteUuid,
@@ -822,15 +827,15 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
 
     try {
       while (true) {
-        const result = await finlexLimiter.schedule(() => axios.get<StatuteVersionResponse[]>(`${baseURL}${path}`, {
-          params: queryParams,
+        // with backoff: a rate-limited (429) page would otherwise silently truncate the list,
+        // and the sync would then treat the missing statutes as up to date
+        const result = await fetchWithBackoff<StatuteVersionResponse[]>(`${baseURL}${path}`, {
+          params: { ...queryParams },
           headers: {
             Accept: 'application/json',
             'Accept-Encoding': 'gzip'
           }
-        }));
-        // Optionally we could use fetchWithBackoff here as well, but since pagination drives many calls
-        // and limiter already smooths throughput, keeping as-is to avoid excessive retries.
+        });
 
         if (!Array.isArray(result.data)) {
           throw new Error('Invalid response format: expected an array');

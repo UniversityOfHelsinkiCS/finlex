@@ -192,14 +192,14 @@ export const runSetup = async (startYear?: number) => {
       `[SETUP] Total setup time: ${totalTime}ms (${(totalTime / 1000 / 60).toFixed(2)} minutes)`,
     )
 
-    if (process.env.NODE_ENV !== "test") {
-      stopFinlexLimiterLogging()
-      exit(0)
-    }
   } catch (error) {
     console.error("[SETUP] Setup failed:", error)
     Sentry.captureException(error)
-    exit(1)
+    // rethrow instead of exiting: runSetup is also called inside the server (/api/setup),
+    // which must keep running and record the failure; the CLI entry below exits
+    throw error
+  } finally {
+    stopFinlexLimiterLogging()
   }
 }
 
@@ -210,5 +210,7 @@ if (
   const startYearArg = process.argv[2]
     ? parseInt(process.argv[2], 10)
     : undefined
-  void runSetup(startYearArg)
+  runSetup(startYearArg)
+    .then(() => exit(0))
+    .catch(() => exit(1))
 }

@@ -127,7 +127,9 @@ function parseXmlSubSections(obj: Chapter) {
 }
 
 function parseStatuteVersion(uri: string): StatuteVersion {
-  const match = uri.match(/^(.+\/\d+\/\d+\/(fin|swe))@(.+)?$/);
+  // statute numbers may contain more than digits (e.g. rikoslaki 1889/39-001), so match any
+  // path segment; a version is "<year><zero-padded number>", e.g. 20250541 = 541/2025
+  const match = uri.match(/^(.+\/\d+\/[^/]+\/(fin|swe))@(.*)$/);
   if (!match) {
     return {
       baseUri: uri.split('@')[0],
@@ -139,7 +141,7 @@ function parseStatuteVersion(uri: string): StatuteVersion {
   }
 
   const [, baseUri, language, version = ''] = match;
-  const versionMatch = version.match(/^(\d+)?(\d+)?$/);
+  const versionMatch = version.match(/^(\d{4})(\d+)$/);
 
   return {
     baseUri,
@@ -167,11 +169,13 @@ export function getLatestStatuteVersions(uris: string[]): string[] {
       return versions[0].fullUri;
     }
 
+    // compare numerically: as strings "541" would sort after "1040"
     const sorted = versions.sort((a, b) => {
-      if (a.year !== b.year) {
-        return (b.year || '0').localeCompare(a.year || '0');
+      const yearDiff = parseInt(b.year || '0', 10) - parseInt(a.year || '0', 10);
+      if (yearDiff !== 0) {
+        return yearDiff;
       }
-      return (b.number || '0').localeCompare(a.number || '0');
+      return parseInt(b.number || '0', 10) - parseInt(a.number || '0', 10);
     });
 
     return sorted[0].fullUri;

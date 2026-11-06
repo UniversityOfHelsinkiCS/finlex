@@ -252,6 +252,24 @@ async function createTables(): Promise<void> {
       )
     `);
     await client.query(`ALTER TABLE statutes ADD COLUMN IF NOT EXISTS is_in_force BOOLEAN`);
+
+    // One-time data migrations, each applied once per database
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS migrations (
+        name TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+      )
+    `);
+    // Statutes used to be fetched from the versionless uri, which returns an older text than the
+    // latest consolidated version, while the latest version number was stored. Clearing the
+    // versions makes the next sync re-fetch every statute with the correct content.
+    const refetch = await client.query(
+      `INSERT INTO migrations (name) VALUES ('refetch_statutes_from_versioned_uri') ON CONFLICT DO NOTHING RETURNING name`
+    );
+    if (refetch.rowCount) {
+      const cleared = await client.query(`UPDATE statutes SET version = NULL WHERE version IS NOT NULL`);
+      console.log(`[MIGRATION] refetch_statutes_from_versioned_uri: cleared version of ${cleared.rowCount} statutes`);
+    }
     await client.query(`
       CREATE TABLE IF NOT EXISTS common_names (
         uuid UUID PRIMARY KEY,

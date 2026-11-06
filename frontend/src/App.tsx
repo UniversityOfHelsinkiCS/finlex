@@ -27,6 +27,9 @@ const App = () => {
   const buttontext: string = language === "fin" ? "Hae" : "Sök"
 
   const [appReady, setAppReady] = useState<boolean>(true)
+  // true while the database is being updated from Finlex: the site stays usable (it serves the
+  // previous content), only a notice is shown since search results may be incomplete meanwhile
+  const [dbUpdating, setDbUpdating] = useState<boolean>(false)
 
 
   if (window.location.pathname === "/") {
@@ -71,6 +74,20 @@ const App = () => {
     minHeight: '100vh',
   }
 
+  // sits just below the fixed 50px top bar of the pages
+  const updateNoticeStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: '50px',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    backgroundColor: '#fff4ce',
+    color: '#3d3000',
+    padding: '6px 16px',
+    textAlign: 'center',
+    fontSize: '14px',
+  }
+
   const routedPageStyle: React.CSSProperties = {
     flex: '1 0 auto',
   }
@@ -88,16 +105,23 @@ const App = () => {
     }
 
     try {
-      const response = await axios.get(`/api/check-db-status`)
-      if (response.status === 200) {
+      await axios.get(`/api/check-db-status`)
+      setAppReady(true)
+      setDbUpdating(false)
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data?.status === 'updating') {
+        // an update is running: keep the app usable and check again later
         setAppReady(true)
+        setDbUpdating(true)
+        setTimeout(() => {
+          checkDbStatus()
+        }, 60000)
+      } else {
+        setAppReady(false)
+        setTimeout(() => {
+          checkDbStatus()
+        }, 1000)
       }
-
-    } catch (error) { // eslint-disable-line
-      setAppReady(false)
-      setTimeout(() => {
-        checkDbStatus()
-      }, 1000)
     }
   }, [])
 
@@ -113,6 +137,13 @@ const App = () => {
           <Helmet>
             <title>Tenttilex</title>
           </Helmet>
+          {dbUpdating && !isExemptRoute() && (
+            <div role="status" style={updateNoticeStyle}>
+              {language === "fin"
+                ? "Aineistoa päivitetään Finlexistä. Haku voi olla hetkellisesti puutteellinen."
+                : "Materialet uppdateras från Finlex. Sökningen kan tillfälligt vara ofullständig."}
+            </div>
+          )}
           <div style={routedPageStyle}>
           <Routes>
             <Route key="listpage" path="/lainsaadanto/" element={<ListDocumentPage language={language} setLanguage={setLanguage} buttonetext={buttontext}

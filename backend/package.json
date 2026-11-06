@@ -29,7 +29,8 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "NODE_ENV=test tsx test/*.test.ts",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "compare": "tsx scripts/compareStatutes.ts"
   },
   "dependencies": {
     "@babel/runtime": "^7.27.6",

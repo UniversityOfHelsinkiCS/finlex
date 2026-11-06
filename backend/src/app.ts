@@ -19,6 +19,7 @@ import { getRecentLogs, pushLog } from './util/logBuffer.js';
 import { printSyncSummary } from "./util/syncResults.js";
 import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid, SyncResult } from './search.js';
 import { query, pool } from './db/db.js';
+import { compareStatute, compareYear, DEFAULT_TENTTILEX_URL, StatuteComparison, YearComparison } from './util/statuteCompare.js';
 
 const app = express()
 const __filename = fileURLToPath(import.meta.url);
@@ -201,6 +202,103 @@ app.post('/api/admin/add-statute', verifyAdminToken, async (req: express.Request
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to add statute' });
   }
+});
+
+// Which Tenttilex instance a comparison reads: 'production' (default) or 'local' (this server)
+const compareBase = (target: unknown): string =>
+  target === 'local'
+    ? `http://localhost:${process.env.PORT || 3001}`
+    : (process.env.COMPARE_TENTTILEX_URL || DEFAULT_TENTTILEX_URL);
+
+// Compares a statute's full text on a Tenttilex instance (production by default) against www.finlex.fi
+app.post('/api/admin/compare-statute', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const { year, number, language, target } = req.body || {};
+    const yearNum = parseInt(String(year), 10);
+    const numberStr = String(number || '').trim();
+    const languageStr = String(language || '').trim();
+
+    if (!yearNum || !numberStr || !VALID_LANGUAGES.includes(languageStr)) {
+      res.status(400).json({ error: 'Invalid statute parameters' });
+      return;
+    }
+
+    const result = await compareStatute(yearNum, numberStr, languageStr, compareBase(target));
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Compare statute endpoint error:', error);
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to compare statute' });
+  }
+});
+
+// Year-level comparison runs as an in-memory background job; the admin UI polls its progress
+interface CompareYearJob {
+  id: string;
+  year: number;
+  language: string;
+  target: string;
+  startedAt: string;
+  done: boolean;
+  processed: number;
+  total: number;
+  // only non-identical statutes are kept, to keep the poll response small
+  results: StatuteComparison[];
+  summary?: Omit<YearComparison, 'results'>;
+  error?: string;
+}
+const compareYearJobs = new Map<string, CompareYearJob>();
+
+app.post('/api/admin/compare-year', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  const { year, language, target } = req.body || {};
+  const yearNum = parseInt(String(year), 10);
+  const languageStr = String(language || '').trim();
+  if (!yearNum || !VALID_LANGUAGES.includes(languageStr)) {
+    res.status(400).json({ error: 'Invalid parameters' });
+    return;
+  }
+  const running = [...compareYearJobs.values()].find(j => !j.done);
+  if (running) {
+    res.status(409).json({ error: 'A comparison is already running', jobId: running.id });
+    return;
+  }
+
+  const job: CompareYearJob = {
+    id: `${yearNum}-${languageStr}-${Date.now()}`,
+    year: yearNum, language: languageStr, target: target === 'local' ? 'local' : 'production', startedAt: new Date().toISOString(),
+    done: false, processed: 0, total: 0, results: [],
+  };
+  compareYearJobs.clear(); // keep only the latest job
+  compareYearJobs.set(job.id, job);
+
+  compareYear(yearNum, languageStr, {
+    tenttilexBase: compareBase(target),
+    onProgress: (processed, total, latest) => {
+      job.processed = processed;
+      job.total = total;
+      if (latest.status !== 'identical') job.results.push(latest);
+    },
+  }).then(({ year, language, total, counts }) => {
+    job.summary = { year, language, total, counts };
+    job.total = total;
+  }).catch(error => {
+    console.error('Compare year job error:', error);
+    Sentry.captureException(error);
+    job.error = error instanceof Error ? error.message : String(error);
+  }).finally(() => {
+    job.done = true;
+  });
+
+  res.status(202).json({ jobId: job.id });
+});
+
+app.get('/api/admin/compare-year/:jobId', verifyAdminToken, (req: express.Request, res: express.Response): void => {
+  const job = compareYearJobs.get(String(req.params.jobId));
+  if (!job) {
+    res.status(404).json({ error: 'Job not found' });
+    return;
+  }
+  res.status(200).json(job);
 });
 
 app.delete('/api/admin/statute/:year/:number/:language', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
