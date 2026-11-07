@@ -18,7 +18,7 @@ interface StatusEntry {
 const HELP = {
   update: {
     labelFin: 'Päivitä', labelSwe: 'Uppdatera',
-    fin: 'Hakee Finlexistä uudet ja muuttuneet lait ja tuomiot aloitusvuodesta alkaen ja rakentaa lopuksi hakuindeksin uudelleen. Jo ajan tasalla olevia lakeja ei haeta uudelleen. Päivitys jatkuu palvelimella, vaikka sivun sulkisi; sivusto pysyy käytössä ja näyttää ylälaidassa ilmoituksen. Jos päivitys katkeaa, paina uudelleen: se jatkaa puuttuvista.',
+    fin: 'Hakee Finlexistä uudet ja muuttuneet lait ja tuomiot aloitusvuodesta alkaen ja rakentaa lopuksi hakuindeksin uudelleen. Jo ajan tasalla olevia lakeja ei haeta uudelleen, paitsi kahden viimeisimmän vuoden muuttamattomat lait, jotka haetaan aina (Finlex korjaa niitä ilman versionumeron muutosta). Päivitys jatkuu palvelimella, vaikka sivun sulkisi; sivusto pysyy käytössä ja näyttää ylälaidassa ilmoituksen. Jos päivitys katkeaa, paina uudelleen: se jatkaa puuttuvista.',
     swe: 'Hämtar nya och ändrade lagar och avgöranden från Finlex från startåret framåt och bygger sedan om sökindexet. Uppdaterade lagar hämtas inte på nytt. Uppdateringen fortsätter på servern även om sidan stängs. Om den avbryts, tryck igen: den fortsätter med det som saknas.',
   },
   clear: {

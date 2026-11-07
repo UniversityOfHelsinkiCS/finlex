@@ -3,17 +3,20 @@ import { query } from '../db.js';
 import { Statute, StatuteListItem } from '../../types/statute.js';
 
 export async function setStatute(statute: Statute) {
-  const existingStatute = 'SELECT uuid, version FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
+  const existingStatute = 'SELECT uuid, version, content FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
   const existingResult = await query(existingStatute, [statute.number, statute.year, statute.language]);
-  if (!(existingResult.rows.length > 0 && existingResult.rows[0].version === statute.version)) {
-    const deleteExisting = 'DELETE FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
-    await query(deleteExisting, [statute.number, statute.year, statute.language]);
-    const sql = 'INSERT INTO statutes (uuid, title, number, year, language, version, content, is_empty, is_in_force) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (number, year, language) DO NOTHING';
-    await query(sql, [statute.uuid, statute.title, statute.number, statute.year, statute.language, statute.version, statute.content, statute.is_empty, statute.is_in_force]);
-    return statute.uuid;
-  } else {
-    return existingResult.rows[0].uuid;
+  const existing = existingResult.rows[0];
+  // keep the stored statute only if it is really unchanged: a statute without a version can be
+  // edited in Finlex without a version change, so the content is compared as well
+  if (existing && existing.version === statute.version && existing.content === statute.content) {
+    await query('UPDATE statutes SET needs_refetch = FALSE WHERE uuid = $1', [existing.uuid]);
+    return existing.uuid;
   }
+  const deleteExisting = 'DELETE FROM statutes WHERE number = $1 AND year = $2 AND language = $3';
+  await query(deleteExisting, [statute.number, statute.year, statute.language]);
+  const sql = 'INSERT INTO statutes (uuid, title, number, year, language, version, content, is_empty, is_in_force) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) ON CONFLICT (number, year, language) DO NOTHING';
+  await query(sql, [statute.uuid, statute.title, statute.number, statute.year, statute.language, statute.version, statute.content, statute.is_empty, statute.is_in_force]);
+  return statute.uuid;
 }
 
 export async function getStatuteCountByYear(year: number): Promise<number> {

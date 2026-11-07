@@ -1,7 +1,6 @@
 import * as Sentry from '@sentry/node';
 import { Pool, QueryResult } from 'pg';
 import { listStatutesByYear, listJudgmentsByYear, parseFinlexUrl, parseJudgmentUrl, setSingleStatute, buildFinlexUrl, buildJudgmentUrl, setSingleJudgment, parseTitleFromXmlString, parseIsInForceFromXml } from './load.js';
-import { getStatutesByYear } from './models/statute.js';
 import { getJudgmentCountByYear, getJudgmentsByYear } from './models/judgment.js';
 import { StatuteKey } from '../types/statute.js';
 import { JudgmentKey } from '../types/judgment.js';
@@ -119,26 +118,25 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
       expectedStatutes.push({ number: statute.docNumber, year: statute.docYear, language: statute.docLanguage, version: statute.docVersion });
     }
 
-    const existingStatutesFin = await getStatutesByYear(year, 'fin');
-    const existingStatutesSwe = await getStatutesByYear(year, 'swe');
-    const existingStatutes: StatuteKey[] = [];
+    // statutes marked for a refetch count as outdated even when the version matches
+    const existingResult = await query(
+      'SELECT number, language, version, needs_refetch FROM statutes WHERE year = $1 AND NOT needs_refetch',
+      [year]
+    );
+    const existing = new Set(
+      existingResult.rows.map(r => `${r.number}|${r.language}|${r.version ?? ''}`)
+    );
 
-    for (const statute of existingStatutesFin) {
-      existingStatutes.push({ number: statute.docNumber, year: statute.docYear, language: 'fin', version: statute.docVersion });
-    }
-
-    for (const statute of existingStatutesSwe) {
-      existingStatutes.push({ number: statute.docNumber, year: statute.docYear, language: 'swe', version: statute.docVersion });
-    }
+    // A statute that has never been amended has no version in Finlex. Finlex still edits such
+    // statutes afterwards (corrections, entry into force notes, the full text published later)
+    // without any version change, so recent versionless statutes are refetched on every update.
+    const refreshVersionless = year >= yearTo() - 1;
 
     const missingStatutes: StatuteKey[] = [];
     for (const statute of expectedStatutes) {
-      if (!existingStatutes.some(existing =>
-        existing.number === statute.number &&
-        existing.year === statute.year &&
-        existing.language === statute.language &&
-        existing.version === statute.version
-      )) {
+      const upToDate = existing.has(`${statute.number}|${statute.language}|${statute.version ?? ''}`)
+        && !(refreshVersionless && !statute.version);
+      if (!upToDate) {
         missingStatutes.push(statute);
       }
     }
@@ -252,6 +250,7 @@ async function createTables(): Promise<void> {
       )
     `);
     await client.query(`ALTER TABLE statutes ADD COLUMN IF NOT EXISTS is_in_force BOOLEAN`);
+    await client.query(`ALTER TABLE statutes ADD COLUMN IF NOT EXISTS needs_refetch BOOLEAN NOT NULL DEFAULT FALSE`);
 
     // One-time data migrations, each applied once per database
     await client.query(`
@@ -269,6 +268,15 @@ async function createTables(): Promise<void> {
     if (refetch.rowCount) {
       const cleared = await client.query(`UPDATE statutes SET version = NULL WHERE version IS NOT NULL`);
       console.log(`[MIGRATION] refetch_statutes_from_versioned_uri: cleared version of ${cleared.rowCount} statutes`);
+    }
+    // Statutes without a version were never refetched: an unchanged (empty) version made them
+    // look up to date although Finlex had edited them. Mark them so the next sync refetches them.
+    const versionless = await client.query(
+      `INSERT INTO migrations (name) VALUES ('refetch_versionless_statutes') ON CONFLICT DO NOTHING RETURNING name`
+    );
+    if (versionless.rowCount) {
+      const marked = await client.query(`UPDATE statutes SET needs_refetch = TRUE WHERE version IS NULL`);
+      console.log(`[MIGRATION] refetch_versionless_statutes: marked ${marked.rowCount} statutes for refetch`);
     }
     await client.query(`
       CREATE TABLE IF NOT EXISTS common_names (
