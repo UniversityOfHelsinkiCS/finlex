@@ -120,6 +120,12 @@ app.get('/api/config', (req, res) => {
 
 app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
+    // never start a second update on top of a running one (it would run two full syncs in parallel)
+    const latest = await getLatestStatusEntry();
+    if (latest?.updating) {
+      res.status(409).json({ error: 'An update is already running' });
+      return;
+    }
     res.status(200).json({ status: 'started', message: 'Database update started in background' });
     setImmediate(async () => {
       try {

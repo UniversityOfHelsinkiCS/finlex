@@ -1,19 +1,19 @@
 import { query } from '../db.js';
 import { Image } from '../../types/image.js';
 
-export async function setImage(image: Image) {
-  const existingImageSql = 'SELECT uuid, mime_type, content FROM images WHERE name = $1';
-  const existingImageResult = await query(existingImageSql, [image.name]);
-  if (existingImageResult.rows.length > 0) {
-    const existingImage = existingImageResult.rows[0];
-    if (existingImage.mime_type === image.mime_type && existingImage.content.equals(image.content)) {
-      return existingImage.uuid;
-    }
-  }
-
-  const sql = 'INSERT INTO images (uuid, name, mime_type, content) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING';
-  await query(sql, [image.uuid, image.name, image.mime_type, image.content]);
-  return image.uuid;
+// Images are stored by file name. Finlex may publish a new version of an image under the same
+// name: then the stored content is replaced and the existing uuid kept, so that the uuid
+// returned always exists (it used to return a new uuid that was never inserted).
+export async function setImage(image: Image): Promise<string> {
+  const sql = `INSERT INTO images (uuid, name, mime_type, content) VALUES ($1, $2, $3, $4)
+    ON CONFLICT (name) DO UPDATE SET mime_type = EXCLUDED.mime_type, content = EXCLUDED.content
+      WHERE images.mime_type IS DISTINCT FROM EXCLUDED.mime_type OR images.content IS DISTINCT FROM EXCLUDED.content
+    RETURNING uuid`;
+  const result = await query(sql, [image.uuid, image.name, image.mime_type, image.content]);
+  if (result.rows.length > 0) return result.rows[0].uuid;
+  // unchanged image: DO UPDATE ... WHERE skipped the row, read its uuid
+  const existing = await query('SELECT uuid FROM images WHERE name = $1', [image.name]);
+  return existing.rows[0].uuid;
 }
 
 export async function getImageByName(name: string): Promise<{content: Buffer, mimeType: string}| null> {

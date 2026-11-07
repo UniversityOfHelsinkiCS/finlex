@@ -14,6 +14,83 @@ interface StatusEntry {
   updating: boolean
 }
 
+// Explanations shown as hover texts and as a visible list under the maintenance buttons
+const HELP = {
+  update: {
+    labelFin: 'Päivitä', labelSwe: 'Uppdatera',
+    fin: 'Hakee Finlexistä uudet ja muuttuneet lait ja tuomiot aloitusvuodesta alkaen ja rakentaa lopuksi hakuindeksin uudelleen. Jo ajan tasalla olevia lakeja ei haeta uudelleen. Päivitys jatkuu palvelimella, vaikka sivun sulkisi; sivusto pysyy käytössä ja näyttää ylälaidassa ilmoituksen. Jos päivitys katkeaa, paina uudelleen: se jatkaa puuttuvista.',
+    swe: 'Hämtar nya och ändrade lagar och avgöranden från Finlex från startåret framåt och bygger sedan om sökindexet. Uppdaterade lagar hämtas inte på nytt. Uppdateringen fortsätter på servern även om sidan stängs. Om den avbryts, tryck igen: den fortsätter med det som saknas.',
+  },
+  clear: {
+    labelFin: 'Tyhjennä tilat', labelSwe: 'Rensa status',
+    fin: 'Hätäkeino: poistaa tiedon käynnissä olevasta päivityksestä, jolloin sivuston ylälaidan päivitysilmoitus katoaa. Ei pysäytä päivitystä eikä poista lakeja tai tuomioita. Käytä vain, jos päivitys on kaatunut ja ilmoitus on jäänyt näkyviin. Älä paina kesken käynnissä olevan päivityksen.',
+    swe: 'Nödåtgärd: tar bort informationen om en pågående uppdatering så att meddelandet på webbplatsen försvinner. Stoppar inte uppdateringen och raderar inga dokument. Använd endast om uppdateringen har kraschat.',
+  },
+  rebuild: {
+    labelFin: 'Uudelleen rakenna Typesense', labelSwe: 'Bygga om Typesense',
+    fin: 'Rakentaa sivuston hakukoneen (Typesense) hakemiston uudelleen tietokannassa jo olevista asiakirjoista. Ei hae mitään Finlexistä. Tarvitaan vain, jos haku antaa puuttuvia tai vääriä tuloksia, vaikka asiakirjat näkyvät oikein. Haku on puutteellinen rakentamisen ajan. Päivitä-nappi tekee tämän automaattisesti.',
+    swe: 'Bygger om sökmotorns (Typesense) index från dokumenten i databasen. Hämtar inget från Finlex. Behövs endast om sökningen ger felaktiga resultat. Uppdatera gör detta automatiskt.',
+  },
+  startYear: {
+    labelFin: 'Aloitusvuosi', labelSwe: 'Startår',
+    fin: 'Päivitys käsittelee vain tämän vuoden ja sitä uudemmat vuodet. Pienempi vuosi = kattavampi mutta hitaampi päivitys. Esim. 2020 päivittää vain vuodet 2020– nopeasti; 1730 käy läpi kaikki vuodet.',
+    swe: 'Uppdateringen behandlar endast detta år och senare år. Tidigare år = mer omfattande men långsammare uppdatering.',
+  },
+}
+
+type StatusTone = 'running' | 'ok' | 'error' | 'warning' | 'neutral'
+
+const STATUS_COLORS: Record<StatusTone, React.CSSProperties> = {
+  running: { backgroundColor: '#e8f1fb', borderColor: '#0c6fc0', color: '#0a3d66' },
+  ok: { backgroundColor: '#e6f4ea', borderColor: '#2e7d32', color: '#1b4d1f' },
+  error: { backgroundColor: '#fdecea', borderColor: '#c62828', color: '#7a1414' },
+  warning: { backgroundColor: '#fff4ce', borderColor: '#b58900', color: '#3d3000' },
+  neutral: { backgroundColor: '#f2f2f2', borderColor: '#999', color: '#333' },
+}
+
+// Turns the latest raw status row into a sentence an admin can act on
+const describeStatus = (entry: StatusEntry, language: string): { tone: StatusTone, title: string, detail?: string } => {
+  const fi = language === 'fin'
+  const when = new Date(entry.date).toLocaleString(fi ? 'fi-FI' : 'sv-FI')
+  const d = entry.data ?? {}
+  const kind = String(d.message ?? d.action ?? '')
+  const years = d.from && d.to ? ` (${d.from}–${d.to})` : ''
+  switch (kind) {
+  case 'updating':
+    return {
+      tone: 'running',
+      title: fi ? `🔄 Päivitys käynnissä${years}, aloitettu ${when}` : `🔄 Uppdatering pågår${years}, startad ${when}`,
+      detail: fi
+        ? 'Päivitys jatkuu palvelimella, vaikka sulkisit sivun. Kaikkien vuosien päivitys voi kestää tunteja. Tila päivittyy tähän automaattisesti.'
+        : 'Uppdateringen fortsätter på servern även om du stänger sidan. Den kan ta timmar.',
+    }
+  case 'updated':
+    return { tone: 'ok', title: fi ? `✅ Päivitys valmis${years}, ${when}` : `✅ Uppdateringen klar${years}, ${when}` }
+  case 'setup_failed':
+    return {
+      tone: 'error',
+      title: fi ? `❌ Päivitys epäonnistui ${when}` : `❌ Uppdateringen misslyckades ${when}`,
+      detail: (d.error ? `${d.error}. ` : '') + (fi ? 'Paina Päivitä uudelleen: jo haetut lait säilyvät ja päivitys jatkaa puuttuvista.' : 'Tryck Uppdatera igen.'),
+    }
+  case 'server_started':
+    return {
+      tone: 'warning',
+      title: fi ? `Palvelin käynnistyi ${when}` : `Servern startades ${when}`,
+      detail: fi
+        ? 'Jos päivitys oli tuolloin käynnissä, eikä tähän ole sen jälkeen tullut ”Päivitys valmis”, päivitys jäi kesken. Paina silloin Päivitä uudelleen: jo haetut lait säilyvät ja päivitys jatkaa puuttuvista.'
+        : 'Om en uppdatering pågick och inte har slutförts, avbröts den. Tryck då Uppdatera igen.',
+    }
+  case 'typesense_rebuild_start':
+    return { tone: 'running', title: fi ? `🔄 Hakuindeksiä rakennetaan, aloitettu ${when}` : `🔄 Sökindexet byggs om, startat ${when}` }
+  case 'typesense_rebuild_complete':
+    return { tone: 'ok', title: fi ? `✅ Hakuindeksi rakennettu ${when}` : `✅ Sökindexet ombyggt ${when}` }
+  case 'typesense_rebuild_failed':
+    return { tone: 'error', title: fi ? `❌ Hakuindeksin rakentaminen epäonnistui ${when}` : `❌ Ombyggnaden av sökindexet misslyckades ${when}`, detail: d.error ? String(d.error) : undefined }
+  default:
+    return { tone: entry.updating ? 'running' : 'neutral', title: `${kind || (fi ? 'Tila' : 'Status')} – ${when}` }
+  }
+}
+
 const AdminPage = ({ language }: AdminPageProps) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
@@ -83,6 +160,15 @@ const AdminPage = ({ language }: AdminPageProps) => {
       stopPolling() // Cleanup on unmount
     }
   }, [])
+
+  // Show the current status whenever the page is open, not only after pressing a button here:
+  // an update runs for hours and may have been started earlier or from another browser
+  useEffect(() => {
+    if (!isAuthenticated) return
+    pollLatestStatus()
+    const id = setInterval(pollLatestStatus, 15000)
+    return () => clearInterval(id)
+  }, [isAuthenticated])
 
   // Fetch backend config (current START_YEAR) and prefill input if empty
   useEffect(() => {
@@ -313,6 +399,32 @@ const AdminPage = ({ language }: AdminPageProps) => {
     minHeight: '60vh'
   }
 
+  const statusBoxStyle: React.CSSProperties = {
+    marginTop: '20px',
+    padding: '12px 16px',
+    borderRadius: '6px',
+    border: '1px solid',
+    fontSize: '15px',
+    lineHeight: 1.5,
+    maxWidth: '800px',
+    width: '100%',
+    boxSizing: 'border-box',
+  }
+
+  const helpTextStyle: React.CSSProperties = {
+    color: '#555',
+    fontSize: '14px',
+    lineHeight: 1.5,
+    margin: '0 0 12px 0',
+  }
+
+  const helpListStyle: React.CSSProperties = {
+    ...helpTextStyle,
+    maxWidth: '800px',
+    marginTop: '20px',
+    paddingLeft: '20px',
+  }
+
   const buttonStyle: React.CSSProperties = {
     backgroundColor: '#0C6FC0',
     color: 'white',
@@ -473,8 +585,13 @@ const AdminPage = ({ language }: AdminPageProps) => {
 
           <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '10px' }}>
-              <label style={{ fontSize: '14px' }}>{language === 'fin' ? 'Aloitusvuosi, oletuksena .env START_YEAR:' : 'Startår:'}</label>
+              <label style={{ fontSize: '14px' }} htmlFor="admin-start-year"
+                title={language === 'fin' ? HELP.startYear.fin : HELP.startYear.swe}>
+                {language === 'fin' ? 'Aloitusvuosi, oletuksena .env START_YEAR:' : 'Startår:'}
+              </label>
               <input
+                id="admin-start-year"
+                title={language === 'fin' ? HELP.startYear.fin : HELP.startYear.swe}
                 type="number"
                 value={startYearInput}
                 onChange={(e) => setStartYearInput(e.target.value)}
@@ -486,7 +603,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
             <button
               style={buttonStyle}
               onClick={handleUpdate}
-              disabled={isUpdating || isClearing}
+              title={latestStatus?.updating
+                ? (language === 'fin' ? 'Päivitys on jo käynnissä. Uutta päivitystä ei voi aloittaa ennen kuin se on valmis.' : 'En uppdatering pågår redan.')
+                : (language === 'fin' ? HELP.update.fin : HELP.update.swe)}
+              disabled={isUpdating || isClearing || !!latestStatus?.updating}
             >
               {isUpdating
                 ? (language === 'fin' ? 'Päivitetään...' : 'Uppdaterar...')
@@ -497,7 +617,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
             <button
               style={clearButtonStyle}
               onClick={handleClearStatus}
-              disabled={isUpdating || isClearing}
+              title={language === 'fin' ? HELP.clear.fin : HELP.clear.swe}
+              disabled={isUpdating || isClearing || !!latestStatus?.updating}
             >
               {isClearing
                 ? (language === 'fin' ? 'Tyhjennetään...' : 'Rensar...')
@@ -508,7 +629,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
             <button
               style={rebuildButtonStyle}
               onClick={handleRebuildTypesense}
-              disabled={isUpdating || isRebuilding}
+              title={language === 'fin' ? HELP.rebuild.fin : HELP.rebuild.swe}
+              disabled={isUpdating || isRebuilding || !!latestStatus?.updating}
             >
               {isRebuilding
                 ? (language === 'fin' ? 'Rakennetaan uudelleen...' : 'Bygger om...')
@@ -517,10 +639,34 @@ const AdminPage = ({ language }: AdminPageProps) => {
             </button>
           </div>
 
+          {latestStatus && (() => {
+            const s = describeStatus(latestStatus, language)
+            return (
+              <div role="status" style={{ ...statusBoxStyle, ...STATUS_COLORS[s.tone] }}>
+                <strong>{s.title}</strong>
+                {s.detail && <div style={{ marginTop: '4px' }}>{s.detail}</div>}
+              </div>
+            )
+          })()}
+
+          <ul style={helpListStyle}>
+            {(['update', 'clear', 'rebuild', 'startYear'] as const).map(key => (
+              <li key={key} style={{ marginBottom: '6px' }}>
+                <strong>{language === 'fin' ? HELP[key].labelFin : HELP[key].labelSwe}:</strong>{' '}
+                {language === 'fin' ? HELP[key].fin : HELP[key].swe}
+              </li>
+            ))}
+          </ul>
+
           <div style={{ marginTop: '30px', width: '100%', maxWidth: '800px' }}>
             <h3 style={{ textAlign: 'center' }}>
               {language === 'fin' ? 'Lisää yksittäinen asiakirja' : 'Lägg till enstaka dokument'}
             </h3>
+            <p style={helpTextStyle}>
+              {language === 'fin'
+                ? 'Hakee yhden lain tai tuomion Finlexistä heti ja päivittää sen myös hakuun, ilman koko tietokannan päivitystä. Jos asiakirja on jo olemassa, se korvataan Finlexin uusimmalla versiolla. Hyödyllinen, kun yksittäinen laki on muuttunut tai puuttuu.'
+                : 'Hämtar en lag eller ett avgörande från Finlex direkt och uppdaterar det också i sökningen, utan att uppdatera hela databasen. Ett befintligt dokument ersätts med Finlex senaste version.'}
+            </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
                 <strong style={{ minWidth: '160px' }}>{language === 'fin' ? 'Lainsäädäntö:' : 'Lagstiftning:'}</strong>
@@ -549,6 +695,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
                 <button
                   style={buttonStyle}
                   onClick={handleAddStatute}
+                  title={language === 'fin'
+                    ? 'Hakee lain (vuosi, numero, kieli) Finlexistä ja tallentaa sen uusimman version. Esim. 2003 / 434 / Suomi.'
+                    : 'Hämtar lagen (år, nummer, språk) från Finlex och sparar dess senaste version.'}
                   disabled={isUpdating || isClearing || isAddingStatute}
                 >
                   {isAddingStatute
@@ -593,6 +742,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
                 <button
                   style={buttonStyle}
                   onClick={handleAddJudgment}
+                  title={language === 'fin'
+                    ? 'Hakee ennakkopäätöksen Finlexistä. Numero ilman vuotta (esim. KKO:2024:15 → vuosi 2024, numero 15), valitse tuomioistuin KKO tai KHO.'
+                    : 'Hämtar prejudikatet från Finlex. Nummer utan år (t.ex. HD:2024:15 → år 2024, nummer 15).'}
                   disabled={isUpdating || isClearing || isAddingJudgment}
                 >
                   {isAddingJudgment
@@ -621,8 +773,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
           {isUpdating && (
             <div style={{ color: '#666', fontSize: '14px', textAlign: 'center' }}>
               {language === 'fin'
-                ? 'Tämä voi kestää useita minuutteja...'
-                : 'Detta kan ta flera minuter...'
+                ? 'Päivitys käynnistetty. Se jatkuu palvelimella, vaikka sulkisit sivun. Kaikkien vuosien päivitys voi kestää tunteja.'
+                : 'Uppdateringen har startat. Den fortsätter på servern även om du stänger sidan. En uppdatering av alla år kan ta timmar.'
               }
             </div>
           )}

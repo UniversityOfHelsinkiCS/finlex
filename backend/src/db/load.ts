@@ -678,10 +678,10 @@ async function setImages(statuteUuid: string, docYear: number, docNumber: string
       }
 
       imageUuid = await setImage(image)
-      mapImageToStatute(statuteUuid, imageUuid)
+      await mapImageToStatute(statuteUuid, imageUuid)
     }
-    catch {
-      console.error(`Failed to fetch image from ${url}:`);
+    catch (error) {
+      console.error(`Failed to fetch or store image from ${url}:`, error instanceof Error ? error.message : error);
     }
   }
 }

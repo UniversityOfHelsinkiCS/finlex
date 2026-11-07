@@ -397,10 +397,10 @@ async function createJudgmentsTables(): Promise<void> {
 
 async function query(text: string, params?: unknown[]): Promise<QueryResult> {
   try {
-    const client = await pool.connect();
-    const result = await client.query(text, params);
-    client.release();
-    return result;
+    // pool.query releases the connection also when the query fails; a manual connect/release
+    // leaked a connection on every failed query until the pool (10) was exhausted and every
+    // later query hung forever
+    return await pool.query(text, params);
   } catch (error) {
     console.error(`Error executing query '${text}': '${error}'`);
     Sentry.captureException(error);

@@ -199,6 +199,11 @@ const StatuteComparePanel = ({ language, buttonStyle, disabled }: Props) => {
       <h3 style={{ textAlign: 'center' }}>
         {fi ? 'Vertaa lakia Finlexiin' : 'Jämför lag med Finlex'}
       </h3>
+      <p style={{ color: '#555', fontSize: '14px', lineHeight: 1.5, margin: '0 0 12px 0' }}>
+        {fi
+          ? 'Tarkistaa, vastaako Tenttilexin lakiteksti sanasta sanaan finlex.fi:n tekstiä (myös muutosmerkinnät, esim. (27.6.2025/631)). Ei muuta mitään, vain lukee. Erot näytetään punaisella (vain Tenttilexissä) ja vihreällä (vain Finlexissä). Pienet muotoilueroavaisuudet ovat normaaleja: Finlex jättää numeroinnista pisteen pois (1. → 1) ja lyhentää lukuja taulukoissa (24.10 → 24.1). Jos lain sisältö oikeasti poikkeaa, hae se uudelleen yllä olevalla Lisää laki -napilla.'
+          : 'Kontrollerar att lagtexten i Tenttilex ord för ord motsvarar texten på finlex.fi (även ändringsmarkeringar). Ändrar ingenting. Små formateringsskillnader är normala (1. → 1, 24.10 → 24.1). Om innehållet skiljer sig, hämta lagen på nytt med Lägg till lag.'}
+      </p>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
         <strong style={{ minWidth: '160px' }}>{fi ? 'Lainsäädäntö:' : 'Lagstiftning:'}</strong>
         <input type="number" value={year} onChange={(e) => setYear(e.target.value)}
@@ -210,15 +215,21 @@ const StatuteComparePanel = ({ language, buttonStyle, disabled }: Props) => {
           <option value="swe">Svenska</option>
         </select>
         <select value={target} onChange={(e) => setTarget(e.target.value)} style={selectStyle}
-          title={fi ? 'Verrattava Tenttilex' : 'Tenttilex som jämförs'}>
+          title={fi
+            ? 'Mitä Tenttilexiä verrataan: Tuotanto = julkinen sivusto, Tämä palvelin = se palvelin, jolla tämä ylläpitosivu on auki (esim. oma kehitysympäristö).'
+            : 'Vilken Tenttilex jämförs: Produktion = den publika webbplatsen, Denna server = servern där denna sida är öppen.'}>
           <option value="production">{fi ? 'Tuotanto' : 'Produktion'}</option>
           <option value="local">{fi ? 'Tämä palvelin' : 'Denna server'}</option>
         </select>
         <button style={buttonStyle} onClick={handleCompare}
+          title={fi ? 'Vertaa yhtä lakia (vuosi + numero + kieli). Kestää muutaman sekunnin.' : 'Jämför en lag (år + nummer + språk).'}
           disabled={disabled || isComparing || !year.trim() || !number.trim()}>
           {fi ? 'Vertaa' : 'Jämför'}
         </button>
         <button style={buttonStyle} onClick={handleCompareYear}
+          title={fi
+            ? 'Vertaa kaikkia valitun vuoden lakeja valitulla kielellä (numerokenttää ei tarvita). Kestää useita minuutteja; listaan tulevat vain lait, joissa on eroja.'
+            : 'Jämför alla lagar för det valda året (nummer behövs inte). Tar flera minuter; endast lagar med skillnader listas.'}
           disabled={disabled || isComparing || !year.trim()}>
           {fi ? 'Vertaa koko vuosi' : 'Jämför hela året'}
         </button>
