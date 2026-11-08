@@ -1,9 +1,10 @@
 name: Build and push docker image (production)
 
 on:
+  # only "published": a plain `release` trigger also fires on "created" and "released", which
+  # built and pushed the image three times with different digests, so OpenShift redeployed twice
   release:
-    branches:
-      - main
+    types: [published]
 jobs:
   build-and-push:
     runs-on: ubuntu-latest

@@ -358,34 +358,22 @@ const AdminPage = ({ language }: AdminPageProps) => {
       setHasStartedRebuild(false)
       stopPolling()
 
-      // Check the action to determine success or failure
-      const action = latestStatus.data?.action as string
-      if (action === 'setup_completed') {
-        setMessage(language === 'fin'
-          ? 'Päivitys valmistui onnistuneesti!'
-          : 'Uppdatering slutfördes framgångsrikt!'
-        )
-      } else if (action === 'setup_failed') {
-        setError(language === 'fin'
-          ? 'Päivitys epäonnistui.'
-          : 'Uppdatering misslyckades.'
-        )
-      } else if (action === 'typesense_rebuild_complete') {
-        setMessage(language === 'fin'
-          ? 'Indeksien uudelleenrakentaminen valmistui onnistuneesti!'
-          : 'Ombyggnad av indexen slutfördes framgångsrikt!'
-        )
-      } else if (action === 'typesense_rebuild_failed') {
-        setError(language === 'fin'
-          ? 'Indeksien uudelleenrakentaminen epäonnistui.'
-          : 'Ombyggnad av indexen misslyckades.'
-        )
-      } else {
-        // Generic completion message if no specific action
-        setMessage(language === 'fin'
-          ? 'Operaatio valmistui!'
-          : 'Operationen slutfördes!'
-        )
+      // the sync writes its result to data.message, the Typesense rebuild to data.action
+      const kind = String(latestStatus.data?.message ?? latestStatus.data?.action ?? '')
+      const fi = language === 'fin'
+      if (kind === 'updated') {
+        setMessage(fi ? 'Päivitys valmistui onnistuneesti!' : 'Uppdatering slutfördes framgångsrikt!')
+      } else if (kind === 'setup_failed') {
+        setError(fi ? 'Päivitys epäonnistui. Paina Päivitä uudelleen.' : 'Uppdatering misslyckades. Tryck Uppdatera igen.')
+      } else if (kind === 'server_started') {
+        // the server restarted (e.g. a deployment) and killed the running operation
+        setError(fi
+          ? 'Palvelin käynnistyi uudelleen kesken operaation, joten se jäi kesken. Paina Päivitä uudelleen: jo haetut lait säilyvät.'
+          : 'Servern startades om under operationen, som därför avbröts. Tryck Uppdatera igen.')
+      } else if (kind === 'typesense_rebuild_complete') {
+        setMessage(fi ? 'Indeksien uudelleenrakentaminen valmistui onnistuneesti!' : 'Ombyggnad av indexen slutfördes framgångsrikt!')
+      } else if (kind === 'typesense_rebuild_failed') {
+        setError(fi ? 'Indeksien uudelleenrakentaminen epäonnistui.' : 'Ombyggnad av indexen misslyckades.')
       }
     }
   }, [latestStatus, hasStartedUpdate, hasStartedRebuild, language])
