@@ -3,6 +3,8 @@
 /private/
 /gitignored/
 
+.claude/settings.local.json
+
 # disallow version control, package managment, IDEs, tools etc
 **/node_modules
 **/.venv
@@ -195,3 +197,5 @@ node_modules/
 !.env.template
 !.env.sample
 !.env.example
+
+.claude/settings.local.json
