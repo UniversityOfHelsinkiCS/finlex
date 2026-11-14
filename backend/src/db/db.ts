@@ -85,7 +85,9 @@ async function dbIsReady(): Promise<boolean> {
   }
 }
 
-async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, statutes: StatuteKey[], judgments: JudgmentKey[]}> {
+// refreshRecent: count recent versionless statutes as outdated so that an update refetches them;
+// a check made right after an update passes false
+async function dbIsUpToDate(startYear?: number, refreshRecent = true): Promise<{upToDate: boolean, statutes: StatuteKey[], judgments: JudgmentKey[]}> {
   console.log('Checking if database is up to date...');
 
   async function compareJudgmentCount(year: number): Promise<boolean> {
@@ -130,7 +132,7 @@ async function dbIsUpToDate(startYear?: number): Promise<{upToDate: boolean, sta
     // A statute that has never been amended has no version in Finlex. Finlex still edits such
     // statutes afterwards (corrections, entry into force notes, the full text published later)
     // without any version change, so recent versionless statutes are refetched on every update.
-    const refreshVersionless = year >= yearTo() - 1;
+    const refreshVersionless = refreshRecent && year >= yearTo() - 1;
 
     const missingStatutes: StatuteKey[] = [];
     for (const statute of expectedStatutes) {
@@ -324,6 +326,24 @@ async function createTables(): Promise<void> {
         updating BOOLEAN DEFAULT FALSE
       )
     `);
+    // one row per update run (scheduled or manual); the run resumes from `phase` after a restart
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS update_runs (
+        id SERIAL PRIMARY KEY,
+        scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL UNIQUE,
+        trigger TEXT NOT NULL,
+        start_year INTEGER,
+        phase TEXT NOT NULL DEFAULT 'fetch',
+        attempts INTEGER NOT NULL DEFAULT 0,
+        index_suffix TEXT,
+        result JSONB NOT NULL DEFAULT '{}'::jsonb,
+        owner TEXT,
+        heartbeat_at TIMESTAMP WITH TIME ZONE,
+        started_at TIMESTAMP WITH TIME ZONE,
+        finished_at TIMESTAMP WITH TIME ZONE
+      )
+    `);
+    await client.query(`ALTER TABLE update_runs ADD COLUMN IF NOT EXISTS owner TEXT`);
     await client.query(`
       CREATE TABLE IF NOT EXISTS map_image_statute (
         statute_uuid UUID references statutes(uuid) ON DELETE CASCADE,

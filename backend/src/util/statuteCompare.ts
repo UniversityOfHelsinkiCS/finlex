@@ -387,6 +387,15 @@ export function diffTexts(tenttilexText: string, finlexText: string, opts?: { co
 
 // ---------- fetch + compare ----------
 
+// A difference finlex.fi only shows differently: list numbers "1." vs "1", "24.10" vs "24.1",
+// a "Huomautus:"/"Observera:" heading word
+export function isCosmeticHunk(h: { tenttilex: string; finlex: string; contextBefore?: string }): boolean {
+  const norm = (s: string) => s.replace(/Huomautus:|Observera:/g, '').replace(/\./g, '').replace(/\b0+(\d)/g, '$1').split(/\s+/).filter(Boolean).join(' ')
+  if (norm(h.tenttilex) === norm(h.finlex)) return true
+  // "24.10" shown as "24.1": the hunk is the decimal part right after "24."
+  return /\d\.$/.test(h.contextBefore ?? '') && /^\d+$/.test(h.tenttilex) && h.tenttilex.replace(/0+$/, '') === h.finlex
+}
+
 export interface StatuteComparison {
   year: number;
   number: string;

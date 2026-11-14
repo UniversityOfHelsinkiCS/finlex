@@ -13,12 +13,7 @@ import * as Sentry from "@sentry/node"
 import "./util/config.js"
 import { exit } from "process"
 import { pathToFileURL } from "url"
-import {
-  syncStatutes,
-  deleteCollection,
-  syncJudgments,
-  SyncResult,
-} from "./search.js"
+import { INDEXES, buildIndex, swapIndex, SyncResult } from "./search.js"
 import { yearFrom, yearTo } from "./util/config.js"
 
 setPool(process.env.PG_URI ?? "")
@@ -152,29 +147,17 @@ export const runSetup = async (startYear?: number) => {
       await initDatabase(startYear)
       console.log(`[SETUP] Step 1 completed in ${Date.now() - step1Start}ms`)
 
+      // build the index next to the live one and swap it in (search keeps working meanwhile)
       const step2Start = Date.now()
-      console.log("[SETUP] Step 2: Clear and sync Typesense collections...")
-      await deleteCollection("statutes", "fin")
-      await deleteCollection("statutes", "swe")
-      await deleteCollection("judgments", "fin")
-      await deleteCollection("judgments", "swe")
-      console.log(`[SETUP] Step 2 completed in ${Date.now() - step2Start}ms`)
-
-      const step3Start = Date.now()
-      console.log("[SETUP] Step 3: Sync statutes to Typesense...")
-      const statuteFinResult = await syncStatutes("fin")
-      syncResults.push(statuteFinResult)
-      const statuteSweResult = await syncStatutes("swe")
-      syncResults.push(statuteSweResult)
-      console.log(`[SETUP] Step 3 completed in ${Date.now() - step3Start}ms`)
-
-      const step4Start = Date.now()
-      console.log("[SETUP] Step 4: Sync judgments to Typesense...")
-      const judgmentFinResult = await syncJudgments("fin")
-      syncResults.push(judgmentFinResult)
-      const judgmentSweResult = await syncJudgments("swe")
-      syncResults.push(judgmentSweResult)
-      console.log(`[SETUP] Step 4 completed in ${Date.now() - step4Start}ms`)
+      console.log("[SETUP] Step 2-4: Build Typesense collections and swap them in...")
+      const suffix = `seed${Date.now()}`
+      for (const k of INDEXES) {
+        syncResults.push(await buildIndex(k, suffix))
+      }
+      for (const k of INDEXES) {
+        await swapIndex(k, suffix)
+      }
+      console.log(`[SETUP] Step 2-4 completed in ${Date.now() - step2Start}ms`)
 
       const step5Start = Date.now()
       console.log("[SETUP] Step 5: Write completion status...")

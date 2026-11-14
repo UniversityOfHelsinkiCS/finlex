@@ -82,6 +82,121 @@ async function getTypesenseClient(): Promise<Typesense.Client> {
   return tsClient
 }
 
+// Errors worth retrying: Typesense restarting (connection refused/reset), timeouts, overload
+export function isTransientTypesenseError(error: unknown): boolean {
+  if (error instanceof Typesense.Errors.ServerError) return true
+  const e = error as { code?: string; message?: string; httpStatus?: number }
+  if (e?.httpStatus === 503) return true
+  if (e?.code && ["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "ECONNABORTED", "EPIPE", "EAI_AGAIN"].includes(e.code)) return true
+  // the last one: upsertWithRetry gave up while Typesense was down
+  return /ECONNREFUSED|ECONNRESET|ETIMEDOUT|socket hang up|timeout|Typesense upsert to .* failed after/i.test(e?.message ?? "")
+}
+
+// Runs a Typesense call, retrying transient failures for about three minutes in total
+export async function withTypesenseRetry<T>(label: string, fn: (client: Typesense.Client) => Promise<T>, maxRetries = 10): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn(await getTypesenseClient())
+    } catch (error) {
+      if (attempt >= maxRetries || !isTransientTypesenseError(error)) throw error
+      const delay = Math.min(1000 * 2 ** attempt, 30000)
+      console.warn(`[TYPESENSE] ${label} failed (${(error as Error).message}), retry ${attempt + 1}/${maxRetries} in ${delay}ms`)
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+}
+
+// true also when `name` is an alias (Typesense resolves aliases on collection reads)
+export async function collectionExists(name: string): Promise<boolean> {
+  try {
+    await withTypesenseRetry(`retrieve ${name}`, (c) => c.collections(name).retrieve())
+    return true
+  } catch (err) {
+    if (err instanceof Errors.ObjectNotFound) return false
+    throw err
+  }
+}
+
+export async function collectionDocumentCount(name: string): Promise<number> {
+  const info = await withTypesenseRetry(`retrieve ${name}`, (c) => c.collections(name).retrieve())
+  return info.num_documents
+}
+
+export async function deleteCollectionByName(name: string): Promise<void> {
+  try {
+    await withTypesenseRetry(`delete ${name}`, (c) => c.collections(name).delete())
+    console.log(`Deleted collection ${name}`)
+  } catch (err) {
+    if (!(err instanceof Errors.ObjectNotFound)) throw err
+  }
+}
+
+async function aliasTarget(alias: string): Promise<string | null> {
+  try {
+    const a = await withTypesenseRetry(`alias ${alias}`, (c) => c.aliases(alias).retrieve())
+    return a.collection_name
+  } catch (err) {
+    if (err instanceof Errors.ObjectNotFound) return null
+    throw err
+  }
+}
+
+export const INDEXES = [
+  { type: "statutes", lang: "fin" },
+  { type: "statutes", lang: "swe" },
+  { type: "judgments", lang: "fin" },
+  { type: "judgments", lang: "swe" },
+] as const
+export type IndexKind = (typeof INDEXES)[number]
+
+export const liveIndexName = (k: IndexKind) => `${k.type}_${k.lang}`
+export const buildIndexName = (k: IndexKind, suffix: string) => `${k.type}_${k.lang}_${suffix}`
+
+// Builds a fresh collection next to the live one; search keeps using the live one meanwhile.
+// A half-built collection left by an interrupted run is dropped and built again.
+export async function buildIndex(k: IndexKind, suffix: string): Promise<SyncResult> {
+  const name = buildIndexName(k, suffix)
+  await deleteCollectionByName(name)
+  const { rows } = await query(`SELECT MIN(year) AS min, MAX(year) AS max FROM ${k.type}`)
+  const range = rows[0]?.min ? { startYear: Number(rows[0].min), endYear: Number(rows[0].max) } : undefined
+  return k.type === "statutes"
+    ? syncStatutes(k.lang, range, name)
+    : syncJudgments(k.lang, range, name)
+}
+
+// Points the live alias at the new collection and drops the previous one. The first time, the live
+// name is still a real collection (from before aliases were used) and is dropped right before the
+// alias is created, which leaves search empty for a moment.
+export async function swapIndex(k: IndexKind, suffix: string): Promise<void> {
+  const alias = liveIndexName(k)
+  const target = buildIndexName(k, suffix)
+  const previous = await aliasTarget(alias)
+  if (previous === null && (await collectionExists(alias))) {
+    await deleteCollectionByName(alias)
+  }
+  await withTypesenseRetry(`alias ${alias}`, (c) => c.aliases().upsert(alias, { collection_name: target }))
+  console.log(`Alias ${alias} -> ${target}`)
+  if (previous && previous !== target) await deleteCollectionByName(previous)
+}
+
+// Drops collections built by runs that never got swapped in (aliases' targets are kept)
+export async function dropOrphanIndexes(keepSuffix?: string): Promise<string[]> {
+  const all = await withTypesenseRetry("list collections", (c) => c.collections().retrieve())
+  const live = new Set<string>()
+  for (const k of INDEXES) {
+    const t = await aliasTarget(liveIndexName(k))
+    if (t) live.add(t)
+  }
+  const dropped: string[] = []
+  for (const col of all) {
+    const m = /^(statutes|judgments)_(fin|swe)_(.+)$/.exec(col.name)
+    if (!m || live.has(col.name) || m[3] === keepSuffix) continue
+    await deleteCollectionByName(col.name)
+    dropped.push(col.name)
+  }
+  return dropped
+}
+
 export interface SyncResult {
   type: "statutes" | "judgments"
   language: string
@@ -158,9 +273,11 @@ function resolveLangShort(lang: string): "fi" | "sv" {
   throw new Error(`Unsupported language: ${lang}`)
 }
 
-async function ensureStatuteCollection(lang: string): Promise<string> {
+async function ensureStatuteCollection(lang: string, name?: string): Promise<string> {
   const lang_short = resolveLangShort(lang)
-  const collectionName = `statutes_${lang}`
+  const collectionName = name ?? `statutes_${lang}`
+  // the default name is normally an alias to the live collection; never create a collection over it
+  if (await collectionExists(collectionName)) return collectionName
   const schema: CollectionCreateSchema = {
     name: collectionName,
     fields: [
@@ -195,9 +312,11 @@ async function ensureStatuteCollection(lang: string): Promise<string> {
   return collectionName
 }
 
-async function ensureJudgmentCollection(lang: string): Promise<string> {
+async function ensureJudgmentCollection(lang: string, name?: string): Promise<string> {
   const lang_short = resolveLangShort(lang)
-  const collectionName = `judgments_${lang}`
+  const collectionName = name ?? `judgments_${lang}`
+  // the default name is normally an alias to the live collection; never create a collection over it
+  if (await collectionExists(collectionName)) return collectionName
   const schema: CollectionCreateSchema = {
     name: collectionName,
     fields: [
@@ -255,10 +374,9 @@ function localeLevelInverse(level: string): string {
 
 async function upsertWithRetry(
   collectionName: string,
-  document: Record<string, any>,
+  document: Record<string, unknown>,
   maxRetries = 10,
 ) {
-  //eslint-disable-line @typescript-eslint/no-explicit-any
   let upserted = false
   let retries = 0
   while (!upserted && retries < maxRetries) {
@@ -267,14 +385,12 @@ async function upsertWithRetry(
       await client.collections(collectionName).documents().upsert(document)
       upserted = true
     } catch (error: unknown) {
-      if (
-        error instanceof Typesense.Errors.ServerError &&
-        error.httpStatus === 503
-      ) {
+      // 503 = Typesense lagging behind; connection errors = Typesense restarting
+      if (isTransientTypesenseError(error)) {
         retries++
-        const delay = 1000 * retries
+        const delay = Math.min(1000 * 2 ** retries, 30000)
         console.warn(
-          `Typesense lagging behind (503), retrying in ${delay}ms... (attempt ${retries})`,
+          `Typesense upsert failed (${(error as Error).message}), retrying in ${delay}ms... (attempt ${retries})`,
         )
         await new Promise((res) => setTimeout(res, delay))
       } else {
@@ -284,13 +400,15 @@ async function upsertWithRetry(
       }
     }
   }
+  if (!upserted) throw new Error(`Typesense upsert to ${collectionName} failed after ${maxRetries} retries`)
 }
 
 export async function syncStatutes(
   lang: string,
   range?: { startYear?: number; endYear?: number },
+  collection?: string,
 ): Promise<SyncResult> {
-  const collectionName = await ensureStatuteCollection(lang)
+  const collectionName = await ensureStatuteCollection(lang, collection)
   const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe"
   console.log(`Indexing: ${lang} -> ${collectionName}`)
 
@@ -377,7 +495,7 @@ export async function syncStatutes(
           `Failed to index statute ${row.id} (${row.number}/${row.year}):`,
           errorMessage,
         )
-        Sentry.captureException(error)
+        if (!isTransientTypesenseError(error)) Sentry.captureException(error)
       }
     }
   }
@@ -404,8 +522,9 @@ export async function syncStatutes(
 export async function syncJudgments(
   lang: string,
   range?: { startYear?: number; endYear?: number },
+  collection?: string,
 ): Promise<SyncResult> {
-  const collectionName = await ensureJudgmentCollection(lang)
+  const collectionName = await ensureJudgmentCollection(lang, collection)
   const langKey: "fin" | "swe" = lang === "fin" ? "fin" : "swe"
   console.log(`\n=== Indexing: ${lang} -> ${collectionName}`)
 
@@ -481,7 +600,7 @@ export async function syncJudgments(
           `Failed to index judgment ${row.id} (${row.level} ${row.number}/${row.year}):`,
           errorMessage,
         )
-        Sentry.captureException(error)
+        if (!isTransientTypesenseError(error)) Sentry.captureException(error)
       }
     }
   }
@@ -653,6 +772,7 @@ function normalizeQuery(q: string): string {
 export async function searchStatutes(
   lang: string,
   queryStr: string,
+  collection = `statutes_${lang}`,
 ): Promise<StatuteSearchResult[]> {
   const normalizedQ = normalizeQuery(queryStr)
 
@@ -670,7 +790,7 @@ export async function searchStatutes(
 
   const client = await getTypesenseClient()
   const searchResults = await client
-    .collections(`statutes_${lang}`)
+    .collections(collection)
     .documents()
     .search(searchParameters)
 
@@ -683,6 +803,7 @@ export async function searchJudgments(
   lang: string,
   queryStr: string,
   level: string,
+  collection = `judgments_${lang}`,
 ): Promise<JudgmentSearchResult[]> {
   const normalizedQ = normalizeQuery(queryStr)
 
@@ -704,7 +825,7 @@ export async function searchJudgments(
 
   const client = await getTypesenseClient()
   const searchResults = await client
-    .collections(`judgments_${lang}`)
+    .collections(collection)
     .documents()
     .search(searchParameters)
 

@@ -1,4 +1,5 @@
 import app from './app.js'
+import { startScheduler } from './scheduler.js'
 import { setPool, createTables, addStatusRow } from './db/db.js'
 import './util/config.js'
 import * as Sentry from '@sentry/node'
@@ -31,6 +32,8 @@ async function startServer() {
 
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
+    // weekly update + resuming an update interrupted by a restart
+    startScheduler()
   })
 }
 

@@ -8,7 +8,8 @@ import judgmentRouter from './controllers/judgment.js';
 import keywordRouter from './controllers/keyword.js';
 import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
-import { runSetup } from './dbSetup.js';
+import { insertRun, getActiveRun, listRuns } from './db/models/updateRun.js';
+import { kickScheduler, schedulerEnabled, nextRunTime } from './scheduler.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear, backfillIsInForce } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
@@ -16,8 +17,7 @@ import { buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatu
 import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
-import { printSyncSummary } from "./util/syncResults.js";
-import { deleteCollection, syncStatutes, syncJudgments, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid, SyncResult } from './search.js';
+import { syncStatutes, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid } from './search.js';
 import { query, pool } from './db/db.js';
 import { compareStatute, compareYear, DEFAULT_TENTTILEX_URL, StatuteComparison, YearComparison } from './util/statuteCompare.js';
 
@@ -118,48 +118,42 @@ app.get('/api/config', (req, res) => {
   }
 })
 
+// Starts an update run. The run is stored in update_runs and executed by the scheduler, so it
+// resumes after a restart and ends with the same checks as the weekly scheduled update.
 app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
-    // never start a second update on top of a running one (it would run two full syncs in parallel)
-    const latest = await getLatestStatusEntry();
-    if (latest?.updating) {
+    if (await getActiveRun()) {
       res.status(409).json({ error: 'An update is already running' });
       return;
     }
-    res.status(200).json({ status: 'started', message: 'Database update started in background' });
-    setImmediate(async () => {
-      try {
-        console.info('Database setup started');
-        const body = (req.body ?? {}) as { startYear?: unknown }
-        const startYear = body.startYear !== undefined ? parseInt(String(body.startYear), 10) : undefined
-        await runSetup(startYear);
-        console.info('Database setup completed');
-      } catch (error) {
-        console.error('[SETUP] Setup failed with error:', error);
-        Sentry.captureException(error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        try {
-          await addStatusRow(
-            {
-              message: 'setup_failed',
-              error: errorMessage,
-              timestamp: new Date().toISOString()
-            },
-            false
-          );
-          console.log('[SETUP] Wrote error status to database');
-        } catch (dbError) {
-          console.error('[SETUP] Failed to write error status to database:', dbError);
-          Sentry.captureException(dbError);
-        }
-      }
-    });
+    const body = (req.body ?? {}) as { startYear?: unknown }
+    const startYear = body.startYear !== undefined && body.startYear !== '' ? parseInt(String(body.startYear), 10) : null
+    const run = await insertRun(new Date(), 'manual', Number.isFinite(startYear) ? startYear : null);
+    kickScheduler();
+    res.status(200).json({ status: 'started', runId: run?.id, message: 'Database update started in background' });
   } catch (error) {
     Sentry.captureException(error);
     console.error('[SETUP] Setup endpoint error:', error);
     res.status(500).json({ error: 'Failed to start setup' });
   }
 });
+
+app.get('/api/update-runs', verifyAdminToken, async (_req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    res.json({
+      runs: await listRuns(5),
+      scheduleEnabled: schedulerEnabled(),
+      nextRun: schedulerEnabled() ? nextRunTime().toISOString() : null,
+    });
+  } catch (error) {
+    Sentry.captureException(error);
+    res.status(500).json({ error: 'Failed to list update runs' });
+  }
+});
+
+// Rebuilds the search index from the database next to the live one and swaps it in after the
+// checks pass, so search keeps working during the rebuild
+
 
 app.post('/api/admin/add-statute', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
   try {
@@ -514,73 +508,18 @@ app.delete('/api/judgment/drop-table', verifyAdminToken, async (req: express.Req
   }
 });
 
-app.post('/api/rebuild-typesense', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+// Rebuilds the search index from the database next to the live one and swaps it in after the
+// checks pass, so search keeps working during the rebuild
+app.post('/api/rebuild-typesense', verifyAdminToken, async (_req: express.Request, res: express.Response): Promise<void> => {
   try {
-    res.status(200).json({ status: 'started', message: 'Typesense rebuild started in background' });
-    setImmediate(async () => {
-      const syncResults: SyncResult[] = [];
-
-      try {
-        console.info('Typesense rebuild started');
-        await addStatusRow({ action: 'typesense_rebuild_start', startedAt: new Date().toISOString() }, true);
-
-        const getYearBounds = async (tableName: 'statutes' | 'judgments') => {
-          const { rows } = await query(`SELECT MIN(year) AS min_year, MAX(year) AS max_year FROM ${tableName}`);
-          const minYear = rows[0]?.min_year ? parseInt(rows[0].min_year, 10) : null;
-          const maxYear = rows[0]?.max_year ? parseInt(rows[0].max_year, 10) : null;
-          if (minYear === null || maxYear === null) {
-            return null;
-          }
-          return { startYear: minYear, endYear: maxYear };
-        };
-
-        // Delete and recreate collections for both languages
-        await deleteCollection('statutes', 'fin');
-        await deleteCollection('statutes', 'swe');
-        await deleteCollection('judgments', 'fin');
-        await deleteCollection('judgments', 'swe');
-        console.log('Old Typesense collections deleted');
-
-        // Rebuild indexes from database
-        const statuteBounds = await getYearBounds('statutes');
-        const judgmentBounds = await getYearBounds('judgments');
-
-        const statuteFinResult = await syncStatutes('fin', statuteBounds ?? undefined);
-        syncResults.push(statuteFinResult);
-        const statuteSweResult = await syncStatutes('swe', statuteBounds ?? undefined);
-        syncResults.push(statuteSweResult);
-        const judgmentFinResult = await syncJudgments('fin', judgmentBounds ?? undefined);
-        syncResults.push(judgmentFinResult);
-        const judgmentSweResult = await syncJudgments('swe', judgmentBounds ?? undefined);
-        syncResults.push(judgmentSweResult);
-
-        console.log('Typesense collections rebuilt');
-
-        // Print summary
-        printSyncSummary(syncResults);
-
-        await addStatusRow({ action: 'typesense_rebuild_complete', completedAt: new Date().toISOString() }, false);
-        console.info('Typesense rebuild completed');
-      } catch (error) {
-        console.error('[REBUILD] Typesense rebuild failed with error:', error);
-        Sentry.captureException(error);
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        try {
-          await addStatusRow(
-            {
-              message: 'typesense_rebuild_failed',
-              error: errorMessage,
-              timestamp: new Date().toISOString()
-            },
-            false
-          );
-          console.log('[REBUILD] Wrote error status to database');
-        } catch (dbError) {
-          console.error('[REBUILD] Failed to write error status to database:', dbError);
-          Sentry.captureException(dbError);
-        }
-      }
-    });
+    if (await getActiveRun()) {
+      res.status(409).json({ error: 'An update is already running' });
+      return;
+    }
+    const run = await insertRun(new Date(), 'rebuild', null, 'index');
+    await addStatusRow({ action: 'typesense_rebuild_start', runId: run?.id, startedAt: new Date().toISOString() }, false);
+    kickScheduler();
+    res.status(200).json({ status: 'started', runId: run?.id, message: 'Typesense rebuild started in background' });
   } catch (error) {
     console.error('[REBUILD] Rebuild endpoint error:', error);
     Sentry.captureException(error);

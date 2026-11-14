@@ -14,11 +14,52 @@ interface StatusEntry {
   updating: boolean
 }
 
+interface RunCheck { ok: boolean, detail: string }
+
+// One update run (weekly scheduled, manual or index rebuild) from /api/update-runs
+interface UpdateRun {
+  id: number
+  scheduled_for: string
+  trigger: 'schedule' | 'manual' | 'rebuild'
+  phase: 'fetch' | 'index' | 'verify' | 'swap' | 'done' | 'failed'
+  attempts: number
+  result: { ok?: boolean, error?: string | null, retryAfter?: string | null, checks?: Record<string, RunCheck> }
+  started_at: string | null
+  finished_at: string | null
+}
+
+interface RunsResponse { runs: UpdateRun[], scheduleEnabled: boolean, nextRun: string | null }
+
+const isActive = (r: UpdateRun) => r.phase !== 'done' && r.phase !== 'failed'
+
+const PHASE_LABELS: Record<UpdateRun['phase'], { fin: string, swe: string }> = {
+  fetch: { fin: 'haetaan Finlexistä', swe: 'hämtar från Finlex' },
+  index: { fin: 'rakennetaan hakuindeksiä (haku toimii vanhalla indeksillä)', swe: 'bygger sökindex' },
+  verify: { fin: 'tarkistetaan', swe: 'kontrollerar' },
+  swap: { fin: 'otetaan uusi hakuindeksi käyttöön', swe: 'tar nytt sökindex i bruk' },
+  done: { fin: 'valmis', swe: 'klar' },
+  failed: { fin: 'epäonnistui', swe: 'misslyckades' },
+}
+
+const TRIGGER_LABELS: Record<UpdateRun['trigger'], { fin: string, swe: string }> = {
+  schedule: { fin: 'Ajastettu päivitys', swe: 'Schemalagd uppdatering' },
+  manual: { fin: 'Käsin käynnistetty päivitys', swe: 'Manuell uppdatering' },
+  rebuild: { fin: 'Hakuindeksin uudelleenrakennus', swe: 'Ombyggnad av sökindex' },
+}
+
+const CHECK_LABELS: Record<string, string> = {
+  upToDate: 'Ajan tasalla',
+  finlex: 'Sama kuin Finlex',
+  indexCounts: 'Hakuindeksi täydellinen',
+  search: 'Koehaut',
+  live: 'Haku käytössä',
+}
+
 // Explanations shown as hover texts and as a visible list under the maintenance buttons
 const HELP = {
   update: {
     labelFin: 'Päivitä', labelSwe: 'Uppdatera',
-    fin: 'Hakee Finlexistä uudet ja muuttuneet lait ja tuomiot aloitusvuodesta alkaen ja rakentaa lopuksi hakuindeksin uudelleen. Jo ajan tasalla olevia lakeja ei haeta uudelleen, paitsi kahden viimeisimmän vuoden muuttamattomat lait, jotka haetaan aina (Finlex korjaa niitä ilman versionumeron muutosta). Päivitys jatkuu palvelimella, vaikka sivun sulkisi; sivusto pysyy käytössä ja näyttää ylälaidassa ilmoituksen. Jos päivitys katkeaa, paina uudelleen: se jatkaa puuttuvista.',
+    fin: 'Sama päivitys ajetaan automaattisesti joka perjantai klo 23.55. Hakee Finlexistä uudet ja muuttuneet lait ja tuomiot aloitusvuodesta alkaen, rakentaa uuden hakuindeksin vanhan rinnalle ja tarkistaa lopuksi, että kanta on ajan tasalla ja haku toimii; vasta sitten uusi indeksi otetaan käyttöön. Jo ajan tasalla olevia lakeja ei haeta uudelleen, paitsi kahden viimeisimmän vuoden muuttamattomat lait, jotka haetaan aina (Finlex korjaa niitä ilman versionumeron muutosta). Päivitys jatkuu palvelimella, vaikka sivun sulkisi; sivusto pysyy käytössä ja näyttää ylälaidassa ilmoituksen. Jos palvelin käynnistyy uudelleen kesken päivityksen, päivitys jatkuu itsestään siitä mihin jäi.',
     swe: 'Hämtar nya och ändrade lagar och avgöranden från Finlex från startåret framåt och bygger sedan om sökindexet. Uppdaterade lagar hämtas inte på nytt. Uppdateringen fortsätter på servern även om sidan stängs. Om den avbryts, tryck igen: den fortsätter med det som saknas.',
   },
   clear: {
@@ -28,7 +69,7 @@ const HELP = {
   },
   rebuild: {
     labelFin: 'Uudelleen rakenna Typesense', labelSwe: 'Bygga om Typesense',
-    fin: 'Rakentaa sivuston hakukoneen (Typesense) hakemiston uudelleen tietokannassa jo olevista asiakirjoista. Ei hae mitään Finlexistä. Tarvitaan vain, jos haku antaa puuttuvia tai vääriä tuloksia, vaikka asiakirjat näkyvät oikein. Haku on puutteellinen rakentamisen ajan. Päivitä-nappi tekee tämän automaattisesti.',
+    fin: 'Rakentaa sivuston hakukoneen (Typesense) hakemiston uudelleen tietokannassa jo olevista asiakirjoista. Ei hae mitään Finlexistä. Tarvitaan vain, jos haku antaa puuttuvia tai vääriä tuloksia, vaikka asiakirjat näkyvät oikein. Uusi hakemisto rakennetaan vanhan rinnalle, joten haku toimii koko ajan; se otetaan käyttöön vasta tarkistusten jälkeen. Päivitä-nappi tekee tämän automaattisesti.',
     swe: 'Bygger om sökmotorns (Typesense) index från dokumenten i databasen. Hämtar inget från Finlex. Behövs endast om sökningen ger felaktiga resultat. Uppdatera gör detta automatiskt.',
   },
   startYear: {
@@ -64,8 +105,22 @@ const describeStatus = (entry: StatusEntry, language: string): { tone: StatusTon
         ? 'Päivitys jatkuu palvelimella, vaikka sulkisit sivun. Kaikkien vuosien päivitys voi kestää tunteja. Tila päivittyy tähän automaattisesti.'
         : 'Uppdateringen fortsätter på servern även om du stänger sidan. Den kan ta timmar.',
     }
+  case 'indexing':
+    return {
+      tone: 'running',
+      title: fi ? `🔄 Lait haettu, hakuindeksiä rakennetaan (aloitettu ${when})` : `🔄 Sökindexet byggs (startat ${when})`,
+      detail: fi ? 'Haku toimii koko ajan vanhalla indeksillä. Uusi otetaan käyttöön tarkistusten jälkeen.' : 'Sökningen fungerar med det gamla indexet.',
+    }
+  case 'verifying':
+    return { tone: 'running', title: fi ? `🔄 Tarkistetaan päivityksen tulosta (aloitettu ${when})` : `🔄 Kontrollerar resultatet (startat ${when})` }
+  case 'update_check_failed':
+    return {
+      tone: 'error',
+      title: fi ? `❌ Päivitys ajettu, mutta tarkistus epäonnistui ${when}` : `❌ Kontrollen misslyckades ${when}`,
+      detail: fi ? 'Katso tarkistusten tulokset alta.' : 'Se resultaten nedan.',
+    }
   case 'updated':
-    return { tone: 'ok', title: fi ? `✅ Päivitys valmis${years}, ${when}` : `✅ Uppdateringen klar${years}, ${when}` }
+    return { tone: 'ok', title: fi ? `✅ Päivitys valmis ja tarkistettu${years}, ${when}` : `✅ Uppdateringen klar${years}, ${when}` }
   case 'setup_failed':
     return {
       tone: 'error',
@@ -77,8 +132,8 @@ const describeStatus = (entry: StatusEntry, language: string): { tone: StatusTon
       tone: 'warning',
       title: fi ? `Palvelin käynnistyi ${when}` : `Servern startades ${when}`,
       detail: fi
-        ? 'Jos päivitys oli tuolloin käynnissä, eikä tähän ole sen jälkeen tullut ”Päivitys valmis”, päivitys jäi kesken. Paina silloin Päivitä uudelleen: jo haetut lait säilyvät ja päivitys jatkaa puuttuvista.'
-        : 'Om en uppdatering pågick och inte har slutförts, avbröts den. Tryck då Uppdatera igen.',
+        ? 'Jos päivitys oli tuolloin käynnissä, se jatkuu automaattisesti noin minuutin kuluttua.'
+        : 'En pågående uppdatering fortsätter automatiskt inom en minut.',
     }
   case 'typesense_rebuild_start':
     return { tone: 'running', title: fi ? `🔄 Hakuindeksiä rakennetaan, aloitettu ${when}` : `🔄 Sökindexet byggs om, startat ${when}` }
@@ -113,6 +168,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const [judgmentLevel, setJudgmentLevel] = useState('kko')
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
+  const [runsInfo, setRunsInfo] = useState<RunsResponse | null>(null)
+  const activeRun = runsInfo?.runs.find(isActive) ?? null
+  const busy = !!latestStatus?.updating || !!activeRun
 
   // Check if user is already authenticated
   useEffect(() => {
@@ -134,8 +192,11 @@ const AdminPage = ({ language }: AdminPageProps) => {
       const response = await axios.get('/api/status/latest', {
         headers: { 'Authorization': `Bearer ${token}` }
       })
-      console.log('Polled status:', response.data)
       setLatestStatus(response.data)
+      const runs = await axios.get<RunsResponse>('/api/update-runs', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+      setRunsInfo(runs.data)
     } catch (err) {
       console.error('Failed to fetch latest status:', err)
     }
@@ -349,34 +410,23 @@ const AdminPage = ({ language }: AdminPageProps) => {
     }
   }
 
-  // Stop polling and updating state when updating becomes false (only if we started an update)
+  // Stop polling when the run started from this page has finished
   useEffect(() => {
-    if (latestStatus && (hasStartedUpdate || hasStartedRebuild) && !latestStatus.updating) {
-      setIsUpdating(false)
-      setIsRebuilding(false)
-      setHasStartedUpdate(false)
-      setHasStartedRebuild(false)
-      stopPolling()
-
-      // the sync writes its result to data.message, the Typesense rebuild to data.action
-      const kind = String(latestStatus.data?.message ?? latestStatus.data?.action ?? '')
-      const fi = language === 'fin'
-      if (kind === 'updated') {
-        setMessage(fi ? 'Päivitys valmistui onnistuneesti!' : 'Uppdatering slutfördes framgångsrikt!')
-      } else if (kind === 'setup_failed') {
-        setError(fi ? 'Päivitys epäonnistui. Paina Päivitä uudelleen.' : 'Uppdatering misslyckades. Tryck Uppdatera igen.')
-      } else if (kind === 'server_started') {
-        // the server restarted (e.g. a deployment) and killed the running operation
-        setError(fi
-          ? 'Palvelin käynnistyi uudelleen kesken operaation, joten se jäi kesken. Paina Päivitä uudelleen: jo haetut lait säilyvät.'
-          : 'Servern startades om under operationen, som därför avbröts. Tryck Uppdatera igen.')
-      } else if (kind === 'typesense_rebuild_complete') {
-        setMessage(fi ? 'Indeksien uudelleenrakentaminen valmistui onnistuneesti!' : 'Ombyggnad av indexen slutfördes framgångsrikt!')
-      } else if (kind === 'typesense_rebuild_failed') {
-        setError(fi ? 'Indeksien uudelleenrakentaminen epäonnistui.' : 'Ombyggnad av indexen misslyckades.')
-      }
+    if (!(hasStartedUpdate || hasStartedRebuild) || !runsInfo || activeRun) return
+    const last = runsInfo.runs[0]
+    if (!last?.finished_at) return
+    setIsUpdating(false)
+    setIsRebuilding(false)
+    setHasStartedUpdate(false)
+    setHasStartedRebuild(false)
+    stopPolling()
+    const fi = language === 'fin'
+    if (last.phase === 'done') {
+      setMessage(fi ? 'Valmis: kaikki tarkistukset menivät läpi.' : 'Klart: alla kontroller godkända.')
+    } else {
+      setError(fi ? 'Ajo päättyi, mutta jokin tarkistus epäonnistui. Katso tulokset alta.' : 'Körningen slutade men en kontroll misslyckades.')
     }
-  }, [latestStatus, hasStartedUpdate, hasStartedRebuild, language])
+  }, [runsInfo, activeRun, hasStartedUpdate, hasStartedRebuild, language])
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',
@@ -591,10 +641,10 @@ const AdminPage = ({ language }: AdminPageProps) => {
             <button
               style={buttonStyle}
               onClick={handleUpdate}
-              title={latestStatus?.updating
+              title={busy
                 ? (language === 'fin' ? 'Päivitys on jo käynnissä. Uutta päivitystä ei voi aloittaa ennen kuin se on valmis.' : 'En uppdatering pågår redan.')
                 : (language === 'fin' ? HELP.update.fin : HELP.update.swe)}
-              disabled={isUpdating || isClearing || !!latestStatus?.updating}
+              disabled={isUpdating || isClearing || busy}
             >
               {isUpdating
                 ? (language === 'fin' ? 'Päivitetään...' : 'Uppdaterar...')
@@ -606,7 +656,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
               style={clearButtonStyle}
               onClick={handleClearStatus}
               title={language === 'fin' ? HELP.clear.fin : HELP.clear.swe}
-              disabled={isUpdating || isClearing || !!latestStatus?.updating}
+              disabled={isUpdating || isClearing || busy}
             >
               {isClearing
                 ? (language === 'fin' ? 'Tyhjennetään...' : 'Rensar...')
@@ -618,7 +668,7 @@ const AdminPage = ({ language }: AdminPageProps) => {
               style={rebuildButtonStyle}
               onClick={handleRebuildTypesense}
               title={language === 'fin' ? HELP.rebuild.fin : HELP.rebuild.swe}
-              disabled={isUpdating || isRebuilding || !!latestStatus?.updating}
+              disabled={isUpdating || isRebuilding || busy}
             >
               {isRebuilding
                 ? (language === 'fin' ? 'Rakennetaan uudelleen...' : 'Bygger om...')
@@ -636,6 +686,42 @@ const AdminPage = ({ language }: AdminPageProps) => {
               </div>
             )
           })()}
+
+          {runsInfo && (
+            <div style={{ ...statusBoxStyle, ...STATUS_COLORS.neutral }}>
+              <strong>{language === 'fin' ? 'Ajastettu päivitys' : 'Schemalagd uppdatering'}: </strong>
+              {runsInfo.scheduleEnabled && runsInfo.nextRun
+                ? (language === 'fin' ? 'seuraava ' : 'nästa ') + new Date(runsInfo.nextRun).toLocaleString(language === 'fin' ? 'fi-FI' : 'sv-FI')
+                : (language === 'fin' ? 'ei käytössä tässä ympäristössä' : 'inte i bruk')}
+              {runsInfo.runs.map(run => (
+                <div key={run.id} style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
+                  <div>
+                    {run.phase === 'done' ? '✅' : run.phase === 'failed' ? '❌' : '🔄'}{' '}
+                    <strong>{language === 'fin' ? TRIGGER_LABELS[run.trigger].fin : TRIGGER_LABELS[run.trigger].swe}</strong>{' '}
+                    {new Date(run.started_at ?? run.scheduled_for).toLocaleString(language === 'fin' ? 'fi-FI' : 'sv-FI')}
+                    {' – '}{language === 'fin' ? PHASE_LABELS[run.phase].fin : PHASE_LABELS[run.phase].swe}
+                    {run.attempts > 1 && ` (${language === 'fin' ? 'yritys' : 'försök'} ${run.attempts})`}
+                  </div>
+                  {run.result?.error && isActive(run) && (
+                    <div style={{ color: '#7a1414' }}>
+                      {language === 'fin' ? 'Edellinen yritys keskeytyi: ' : 'Föregående försök avbröts: '}{run.result.error}
+                      {run.result.retryAfter && ` – ${language === 'fin' ? 'jatketaan' : 'fortsätter'} ${new Date(run.result.retryAfter).toLocaleTimeString(language === 'fin' ? 'fi-FI' : 'sv-FI')}`}
+                    </div>
+                  )}
+                  {run.result?.error && run.phase === 'failed' && !run.result.checks && (
+                    <div style={{ color: '#7a1414' }}>{run.result.error}</div>
+                  )}
+                  {run.result?.checks && (
+                    <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px' }}>
+                      {Object.entries(run.result.checks).map(([key, c]) => (
+                        <li key={key}>{c.ok ? '✓' : '✗'} {CHECK_LABELS[key] ?? key}: {c.detail}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           <ul style={helpListStyle}>
             {(['update', 'clear', 'rebuild', 'startYear'] as const).map(key => (
