@@ -30,16 +30,25 @@ const childElement = (el: xmldom.Element, name: string): xmldom.Element | null =
   return null;
 };
 
-// The "(label)" Tenttilex shows for an element, mirroring frontend/public/akomo_ntoso.xsl
-function versionLabelShown(el: xmldom.Element): string | null {
+// The "(label)"s Tenttilex shows for an element, mirroring frontend/public/akomo_ntoso.xsl
+function versionLabelsShown(el: xmldom.Element): string[] {
   const name = el.localName ?? '';
   if (['part', 'chapter', 'section', 'subsection'].includes(name)) {
     const heading = childElement(el, 'heading');
-    if (name === 'subsection' && !heading && !childElement(el, 'num')) return null;
-    const label = heading?.getAttribute(OVL) || el.getAttribute(OVL);
-    if (!label || (heading?.textContent ?? '').includes(label)) return null;
-    return label;
+    if (name === 'subsection' && !heading && !childElement(el, 'num')) return [];
+    // the element and its heading may have been amended separately: show both labels,
+    // except one the heading text already contains as a <ref>
+    const headingText = heading?.textContent ?? '';
+    const labels = [el.getAttribute(OVL), heading?.getAttribute(OVL)]
+      .filter((l): l is string => !!l && !headingText.includes(l));
+    return [...new Set(labels)];
   }
+  const label = versionLabelShown(el);
+  return label ? [label] : [];
+}
+
+function versionLabelShown(el: xmldom.Element): string | null {
+  const name = el.localName ?? '';
   if (['paragraph', 'subparagraph', 'intro'].includes(name)) return el.getAttribute(OVL) || null;
   if (name === 'crossHeading') {
     const label = el.getAttribute(OVL);
@@ -79,8 +88,7 @@ export function extractTextFromAkomaNtoso(xml: string): string {
     if (block) out.push('\n');
     for (let c = node.firstChild; c; c = c.nextSibling) walk(c);
     if (node.nodeType === 1) {
-      const label = versionLabelShown(node as xmldom.Element);
-      if (label) out.push(` (${label}) `);
+      for (const label of versionLabelsShown(node as xmldom.Element)) out.push(` (${label}) `);
     }
     if (block) out.push('\n');
   };
@@ -224,9 +232,14 @@ function tokenizeWithSpacing(s: string): { tokens: string[]; spaced: boolean[] }
 // (after vs. before a heading), so they are compared separately as a multiset.
 const VERSION_LABEL = /\(\s*\d{1,2}\.\d{1,2}\.\d{4}\s*\/\s*\d+\s*\)/g;
 
-function splitVersionLabels(text: string): { text: string; labels: string[] } {
-  const labels = (text.match(VERSION_LABEL) ?? []).map(l => l.replace(/\s+/g, ''));
-  return { text: text.replace(VERSION_LABEL, ' '), labels };
+// finlex.fi prints the label of an attachment heading twice in a row, e.g.
+// "Liite (1.3.2018/164) (1.3.2018/164)"; a label repeated back to back is counted once
+const REPEATED_LABEL = /(\(\s*\d{1,2}\.\d{1,2}\.\d{4}\s*\/\s*\d+\s*\))(?:\s*\1)+/g;
+
+export function splitVersionLabels(text: string, collapseRepeats = false): { text: string; labels: string[] } {
+  const deduped = collapseRepeats ? text.replace(REPEATED_LABEL, '$1') : text;
+  const labels = (deduped.match(VERSION_LABEL) ?? []).map(l => l.replace(/\s+/g, ''));
+  return { text: deduped.replace(VERSION_LABEL, ' '), labels };
 }
 
 function multisetDiff(a: string[], b: string[]): string[] {
@@ -433,7 +446,7 @@ export async function compareStatute(
     const fRaw = extractTextFromFinlexHtml(fRes.data, lang.htmlLang);
     if (fRaw === null) return { ...result, status: 'missing_finlex', error: 'Statute text not found on finlex.fi page' };
     const t = splitVersionLabels(extractTextFromAkomaNtoso(tRes.data));
-    const f = splitVersionLabels(fRaw);
+    const f = splitVersionLabels(fRaw, true);
 
     const countWords = (text: string) => tokenize(text).filter(tok => /[\p{L}\p{N}]/u.test(tok)).length;
     result.tenttilexWords = countWords(t.text);

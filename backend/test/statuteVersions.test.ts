@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getLatestStatuteVersions } from '../src/util/parse.js'
-import { extractTextFromAkomaNtoso, extractTextFromFinlexHtml, diffTexts } from '../src/util/statuteCompare.js'
+import { extractTextFromAkomaNtoso, extractTextFromFinlexHtml, diffTexts, splitVersionLabels } from '../src/util/statuteCompare.js'
 
 const B = 'https://opendata.finlex.fi/finlex/avoindata/v1/akn/fi/act/statute-consolidated'
 
@@ -68,4 +68,19 @@ test('version label already in the heading text is not repeated', () => {
     <section><num>112 §</num><heading finlex:originalVersionLabel="9.7.2026/733">Otsikko <ref>(9.7.2026/733)</ref></heading>
       <subsection><content><p>Teksti.</p></content></subsection></section></body></act></akomaNtoso>`
   assert.equal(extractTextFromAkomaNtoso(xml).match(/9\.7\.2026\/733/g)?.length, 1)
+})
+
+test('section and its separately amended heading both show their labels', () => {
+  const xml = `<akomaNtoso xmlns:finlex="http://data.finlex.fi/schema/finlex"><act><body>
+    <section finlex:originalVersionLabel="4.5.2018/301"><num>1 §</num>
+      <heading finlex:originalVersionLabel="29.3.2019/371">Otsikko <ref>(29.3.2019/371)</ref></heading>
+      <subsection><content><p>Teksti.</p></content></subsection></section></body></act></akomaNtoso>`
+  const text = extractTextFromAkomaNtoso(xml)
+  assert.equal(text.match(/29\.3\.2019\/371/g)?.length, 1)
+  assert.equal(text.match(/4\.5\.2018\/301/g)?.length, 1)
+})
+
+test('label printed twice in a row on finlex.fi is counted once', () => {
+  assert.deepEqual(splitVersionLabels('Liite (1.3.2018/164) (1.3.2018/164) Teksti', true).labels, ['(1.3.2018/164)'])
+  assert.deepEqual(splitVersionLabels('Liite (1.3.2018/164) (1.3.2018/164) Teksti').labels.length, 2)
 })
