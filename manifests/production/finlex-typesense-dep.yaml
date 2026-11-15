@@ -29,6 +29,16 @@ spec:
           volumeMounts:
             - name: finlex-typesense-volume
               mountPath: /data
+          # Typesense answers /health with an error while it loads collections from disk after a
+          # restart (several minutes with two index sets during an update); without this the
+          # liveness probe kills it mid-load, forever.
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8108
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 90
           livenessProbe:
             httpGet:
               path: /health
@@ -45,12 +55,14 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 2
+          # The update builds the new index next to the live one, so Typesense needs about twice its
+          # normal ~1.1 GiB for a while: with a 1200Mi limit it was OOM-killed (2026-11-14).
           resources:
             limits:
-              memory: "3800Mi"
+              memory: "3Gi"
               cpu: "1000m"
             requests:
-              memory: "1000Mi"
+              memory: "2500Mi"
               cpu: "1000m"
       volumes:
         - name: finlex-typesense-volume

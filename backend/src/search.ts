@@ -106,6 +106,36 @@ export async function withTypesenseRetry<T>(label: string, fn: (client: Typesens
   }
 }
 
+// Snapshot for GET /api/health: is Typesense answering, what the live names point to, sizes, memory.
+// No retries and a short timeout, so the health page answers quickly also while Typesense is down.
+export async function typesenseHealth(): Promise<Record<string, unknown>> {
+  const withTimeout = <T>(p: Promise<T>) => Promise.race([
+    p, new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 5000)),
+  ])
+  try {
+    const c = await withTimeout(getTypesenseClient())
+    const health = await withTimeout(c.health.retrieve()) as { ok: boolean }
+    const [collections, aliases, metrics] = await Promise.all([
+      withTimeout(c.collections().retrieve()),
+      withTimeout(c.aliases().retrieve()),
+      withTimeout(c.metrics.retrieve()).catch(() => null) as Promise<Record<string, string> | null>,
+    ])
+    const mb = (v?: string) => (v ? Math.round(Number(v) / 1024 / 1024) : null)
+    return {
+      ok: health.ok,
+      aliases: Object.fromEntries(aliases.aliases.map(a => [a.name, a.collection_name])),
+      collections: collections.map(col => ({ name: col.name, documents: col.num_documents })),
+      memoryMB: metrics ? {
+        typesenseActive: mb(metrics.typesense_memory_active_bytes),
+        typesenseResident: mb(metrics.typesense_memory_resident_bytes),
+      } : null,
+    }
+  } catch (error) {
+    const e = error as { message?: string; code?: string }
+    return { ok: false, error: e?.message || e?.code || String(error) }
+  }
+}
+
 // true also when `name` is an alias (Typesense resolves aliases on collection reads)
 export async function collectionExists(name: string): Promise<boolean> {
   try {

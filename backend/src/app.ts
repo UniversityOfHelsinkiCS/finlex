@@ -8,7 +8,7 @@ import judgmentRouter from './controllers/judgment.js';
 import keywordRouter from './controllers/keyword.js';
 import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
-import { insertRun, getActiveRun, listRuns } from './db/models/updateRun.js';
+import { insertRun, getActiveRun, listRuns, UpdateRun } from './db/models/updateRun.js';
 import { kickScheduler, schedulerEnabled, nextRunTime } from './scheduler.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear, backfillIsInForce } from './db/db.js';
@@ -17,7 +17,7 @@ import { buildJudgmentUrl, listStatutesByYear, setSingleJudgment, setSingleStatu
 import type { JudgmentKey } from './types/judgment.js';
 import type { StatuteKey } from './types/statute.js';
 import { getRecentLogs, pushLog } from './util/logBuffer.js';
-import { syncStatutes, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid } from './search.js';
+import { syncStatutes, upsertJudgmentByUuid, upsertStatuteByUuid, deleteStatuteByUuid, typesenseHealth } from './search.js';
 import { query, pool } from './db/db.js';
 import { compareStatute, compareYear, DEFAULT_TENTTILEX_URL, StatuteComparison, YearComparison } from './util/statuteCompare.js';
 
@@ -136,6 +136,41 @@ app.post('/api/setup', verifyAdminToken, async (req: express.Request, res: expre
     console.error('[SETUP] Setup endpoint error:', error);
     res.status(500).json({ error: 'Failed to start setup' });
   }
+});
+
+// Public, read-only health snapshot for monitoring: search engine state, the update runs and their
+// checks. Nothing secret here; 503 when search cannot work.
+app.get('/api/health', async (_req: express.Request, res: express.Response): Promise<void> => {
+  const summary = (r: UpdateRun | undefined | null) => !r ? null : {
+    id: r.id, trigger: r.trigger, phase: r.phase, attempts: r.attempts, startYear: r.start_year,
+    scheduledFor: r.scheduled_for, startedAt: r.started_at, finishedAt: r.finished_at, heartbeatAt: r.heartbeat_at,
+    ok: r.result?.ok ?? null, error: r.result?.error ?? null, retryAfter: r.result?.retryAfter ?? null,
+    checks: r.result?.checks ?? null,
+  }
+  const typesense = await typesenseHealth()
+  let db: Record<string, unknown>
+  try {
+    const runs = await listRuns(5)
+    const latest = await getLatestStatusEntry()
+    db = {
+      database: { ok: true },
+      updatingFlag: !!latest?.updating,
+      activeRun: summary(runs.find(r => r.phase !== 'done' && r.phase !== 'failed')),
+      lastFinishedRun: summary(runs.find(r => r.phase === 'done' || r.phase === 'failed')),
+      recentRuns: runs.map(r => ({ id: r.id, trigger: r.trigger, phase: r.phase, attempts: r.attempts, startedAt: r.started_at, finishedAt: r.finished_at })),
+    }
+  } catch (error) {
+    db = { database: { ok: false, error: (error as Error).message } }
+  }
+  const ok = typesense.ok === true && (db.database as { ok: boolean }).ok
+  res.status(ok ? 200 : 503).json({
+    ok,
+    time: new Date().toISOString(),
+    scheduleEnabled: schedulerEnabled(),
+    nextRun: schedulerEnabled() ? nextRunTime().toISOString() : null,
+    typesense,
+    ...db,
+  })
 });
 
 app.get('/api/update-runs', verifyAdminToken, async (_req: express.Request, res: express.Response): Promise<void> => {

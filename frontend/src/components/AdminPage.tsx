@@ -187,18 +187,19 @@ const AdminPage = ({ language }: AdminPageProps) => {
   }, [])
 
   const pollLatestStatus = async () => {
+    const headers = { 'Authorization': `Bearer ${localStorage.getItem('adminToken')}` }
+    // fetched independently: one failing (e.g. no status rows yet) must not hide the other
     try {
-      const token = localStorage.getItem('adminToken')
-      const response = await axios.get('/api/status/latest', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
+      const response = await axios.get('/api/status/latest', { headers })
       setLatestStatus(response.data)
-      const runs = await axios.get<RunsResponse>('/api/update-runs', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      setRunsInfo(runs.data)
     } catch (err) {
       console.error('Failed to fetch latest status:', err)
+    }
+    try {
+      const runs = await axios.get<RunsResponse>('/api/update-runs', { headers })
+      setRunsInfo(runs.data)
+    } catch (err) {
+      console.error('Failed to fetch update runs:', err)
     }
   }
 
@@ -283,6 +284,12 @@ const AdminPage = ({ language }: AdminPageProps) => {
 
     } catch (err) {
       console.error('Setup failed:', err)
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        setError(language === 'fin' ? 'Päivitys on jo käynnissä.' : 'En uppdatering pågår redan.')
+        setIsUpdating(false)
+        setHasStartedUpdate(false)
+        return
+      }
       setError(language === 'fin'
         ? 'Päivitys epäonnistui. Tarkista konsoli lisätiedoille.'
         : 'Uppdatering misslyckades. Kontrollera konsolen för mer information.'
@@ -456,13 +463,6 @@ const AdminPage = ({ language }: AdminPageProps) => {
     margin: '0 0 12px 0',
   }
 
-  const helpListStyle: React.CSSProperties = {
-    ...helpTextStyle,
-    maxWidth: '800px',
-    marginTop: '20px',
-    paddingLeft: '20px',
-  }
-
   const buttonStyle: React.CSSProperties = {
     backgroundColor: '#0C6FC0',
     color: 'white',
@@ -470,8 +470,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
     padding: '12px 24px',
     fontSize: '16px',
     borderRadius: '4px',
-    cursor: isUpdating ? 'not-allowed' : 'pointer',
-    opacity: isUpdating ? 0.6 : 1,
+    cursor: (isUpdating || busy) ? 'not-allowed' : 'pointer',
+    opacity: (isUpdating || busy) ? 0.35 : 1,
     margin: '0 10px 20px 10px'
   }
 
@@ -482,8 +482,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
     padding: '12px 24px',
     fontSize: '16px',
     borderRadius: '4px',
-    cursor: (isUpdating || isClearing) ? 'not-allowed' : 'pointer',
-    opacity: (isUpdating || isClearing) ? 0.6 : 1,
+    cursor: ((isUpdating || isClearing) || busy) ? 'not-allowed' : 'pointer',
+    opacity: ((isUpdating || isClearing) || busy) ? 0.35 : 1,
     margin: '0 10px 20px 10px'
   }
 
@@ -494,8 +494,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
     padding: '12px 24px',
     fontSize: '16px',
     borderRadius: '4px',
-    cursor: (isUpdating || isRebuilding) ? 'not-allowed' : 'pointer',
-    opacity: (isUpdating || isRebuilding) ? 0.6 : 1,
+    cursor: ((isUpdating || isRebuilding) || busy) ? 'not-allowed' : 'pointer',
+    opacity: ((isUpdating || isRebuilding) || busy) ? 0.35 : 1,
     margin: '0 10px 20px 10px'
   }
 
@@ -677,7 +677,30 @@ const AdminPage = ({ language }: AdminPageProps) => {
             </button>
           </div>
 
-          {latestStatus && (() => {
+          {activeRun && (
+            <div role="status" style={{ ...statusBoxStyle, ...STATUS_COLORS.running, fontSize: '17px' }}>
+              <strong>
+                🔄 {language === 'fin' ? TRIGGER_LABELS[activeRun.trigger].fin : TRIGGER_LABELS[activeRun.trigger].swe}{' '}
+                {language === 'fin' ? 'käynnissä' : 'pågår'}
+              </strong>
+              <div>
+                {language === 'fin' ? 'Vaihe: ' : 'Fas: '}{language === 'fin' ? PHASE_LABELS[activeRun.phase].fin : PHASE_LABELS[activeRun.phase].swe}
+                {activeRun.started_at && ` · ${language === 'fin' ? 'aloitettu' : 'startad'} ${new Date(activeRun.started_at).toLocaleString(language === 'fin' ? 'fi-FI' : 'sv-FI')}`}
+                {activeRun.attempts > 1 && ` · ${language === 'fin' ? 'yritys' : 'försök'} ${activeRun.attempts}`}
+              </div>
+              {activeRun.result?.error && (
+                <div style={{ color: '#7a1414' }}>
+                  {language === 'fin' ? 'Edellinen yritys keskeytyi: ' : 'Föregående försök avbröts: '}{activeRun.result.error}
+                  {activeRun.result.retryAfter && ` – ${language === 'fin' ? 'jatketaan klo' : 'fortsätter'} ${new Date(activeRun.result.retryAfter).toLocaleTimeString(language === 'fin' ? 'fi-FI' : 'sv-FI')}`}
+                </div>
+              )}
+              <div style={{ fontSize: '14px', marginTop: '4px' }}>
+                {language === 'fin' ? 'Napit ovat pois käytöstä, kunnes päivitys on valmis. Haku toimii koko ajan.' : 'Knapparna är inaktiverade tills uppdateringen är klar.'}
+              </div>
+            </div>
+          )}
+
+          {!activeRun && latestStatus && (() => {
             const s = describeStatus(latestStatus, language)
             return (
               <div role="status" style={{ ...statusBoxStyle, ...STATUS_COLORS[s.tone] }}>
@@ -687,50 +710,38 @@ const AdminPage = ({ language }: AdminPageProps) => {
             )
           })()}
 
-          {runsInfo && (
-            <div style={{ ...statusBoxStyle, ...STATUS_COLORS.neutral }}>
-              <strong>{language === 'fin' ? 'Ajastettu päivitys' : 'Schemalagd uppdatering'}: </strong>
-              {runsInfo.scheduleEnabled && runsInfo.nextRun
-                ? (language === 'fin' ? 'seuraava ' : 'nästa ') + new Date(runsInfo.nextRun).toLocaleString(language === 'fin' ? 'fi-FI' : 'sv-FI')
-                : (language === 'fin' ? 'ei käytössä tässä ympäristössä' : 'inte i bruk')}
-              {runsInfo.runs.map(run => (
-                <div key={run.id} style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px solid #ccc' }}>
-                  <div>
-                    {run.phase === 'done' ? '✅' : run.phase === 'failed' ? '❌' : '🔄'}{' '}
-                    <strong>{language === 'fin' ? TRIGGER_LABELS[run.trigger].fin : TRIGGER_LABELS[run.trigger].swe}</strong>{' '}
-                    {new Date(run.started_at ?? run.scheduled_for).toLocaleString(language === 'fin' ? 'fi-FI' : 'sv-FI')}
-                    {' – '}{language === 'fin' ? PHASE_LABELS[run.phase].fin : PHASE_LABELS[run.phase].swe}
-                    {run.attempts > 1 && ` (${language === 'fin' ? 'yritys' : 'försök'} ${run.attempts})`}
-                  </div>
-                  {run.result?.error && isActive(run) && (
-                    <div style={{ color: '#7a1414' }}>
-                      {language === 'fin' ? 'Edellinen yritys keskeytyi: ' : 'Föregående försök avbröts: '}{run.result.error}
-                      {run.result.retryAfter && ` – ${language === 'fin' ? 'jatketaan' : 'fortsätter'} ${new Date(run.result.retryAfter).toLocaleTimeString(language === 'fin' ? 'fi-FI' : 'sv-FI')}`}
-                    </div>
-                  )}
-                  {run.result?.error && run.phase === 'failed' && !run.result.checks && (
-                    <div style={{ color: '#7a1414' }}>{run.result.error}</div>
-                  )}
-                  {run.result?.checks && (
-                    <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px' }}>
-                      {Object.entries(run.result.checks).map(([key, c]) => (
-                        <li key={key}>{c.ok ? '✓' : '✗'} {CHECK_LABELS[key] ?? key}: {c.detail}</li>
-                      ))}
-                    </ul>
-                  )}
+          {runsInfo && (() => {
+            const fi = language === 'fin'
+            const last = runsInfo.runs.find(r => !isActive(r))
+            return (
+              <div style={{ ...statusBoxStyle, ...STATUS_COLORS.neutral, fontSize: '14px' }}>
+                <div>
+                  <strong>{fi ? 'Seuraava ajastettu päivitys: ' : 'Nästa schemalagda uppdatering: '}</strong>
+                  {runsInfo.scheduleEnabled && runsInfo.nextRun
+                    ? new Date(runsInfo.nextRun).toLocaleString(fi ? 'fi-FI' : 'sv-FI')
+                    : (fi ? 'ei käytössä tässä ympäristössä' : 'inte i bruk')}
                 </div>
-              ))}
-            </div>
-          )}
+                {last && (
+                  <div style={{ marginTop: '6px' }}>
+                    <strong>{fi ? 'Edellinen: ' : 'Föregående: '}</strong>
+                    {last.phase === 'done' ? '✅' : '❌'}{' '}
+                    {fi ? TRIGGER_LABELS[last.trigger].fin : TRIGGER_LABELS[last.trigger].swe}{' '}
+                    {last.finished_at && new Date(last.finished_at).toLocaleString(fi ? 'fi-FI' : 'sv-FI')}
+                    {last.result?.checks
+                      ? (
+                        <ul style={{ margin: '4px 0 0 0', paddingLeft: '20px' }}>
+                          {Object.entries(last.result.checks).map(([key, c]) => (
+                            <li key={key}>{c.ok ? '✓' : '✗'} {CHECK_LABELS[key] ?? key}{c.ok && !c.detail.includes('puuttuu') ? '' : `: ${c.detail}`}</li>
+                          ))}
+                        </ul>
+                      )
+                      : last.result?.error && <div style={{ color: '#7a1414' }}>{last.result.error}</div>}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
 
-          <ul style={helpListStyle}>
-            {(['update', 'clear', 'rebuild', 'startYear'] as const).map(key => (
-              <li key={key} style={{ marginBottom: '6px' }}>
-                <strong>{language === 'fin' ? HELP[key].labelFin : HELP[key].labelSwe}:</strong>{' '}
-                {language === 'fin' ? HELP[key].fin : HELP[key].swe}
-              </li>
-            ))}
-          </ul>
 
           <div style={{ marginTop: '30px', width: '100%', maxWidth: '800px' }}>
             <h3 style={{ textAlign: 'center' }}>

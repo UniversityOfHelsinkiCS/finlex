@@ -10,8 +10,10 @@ import { lastScheduledTime, nextScheduledTime, parseSchedule } from './util/sche
 // on startup the scheduler finds the unfinished run and continues it from its phase.
 
 const SCHEDULE = parseSchedule(process.env.UPDATE_SCHEDULE)
-// a slot missed while the server was down is still run if the server is back within this time
-const CATCH_UP_MS = 24 * 60 * 60 * 1000
+// A run is created only during the first minutes after the scheduled moment. A deployment or
+// restart at any other time never starts a new run; a slot missed because the server was down
+// for these minutes is skipped (the next week's run catches up on everything).
+const CATCH_UP_MS = 10 * 60 * 1000
 const TICK_MS = 60_000
 const OWNER = `${os.hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`
 

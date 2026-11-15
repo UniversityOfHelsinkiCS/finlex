@@ -127,22 +127,32 @@ export async function verify(suffix: string, startYear: number): Promise<Record<
   }
 }
 
-// Every statute version and judgment listed by Finlex is in the database. Whatever is still
-// missing (a fetch that failed) is fetched once more before giving up.
+// Every statute version and judgment listed by Finlex is in the database. The fetch phase has just
+// gone through every year from startYear, so this re-checks only the recent years, where changes
+// land (the full re-check took hours). Whatever is still missing is fetched once more.
+// A few judgments may be missing for good: they are scraped from Finlex pages, and an occasional
+// page is broken on Finlex. Those are reported but do not fail the run; a missing statute does.
+export const MAX_MISSING_JUDGMENTS = 5
+
 async function checkUpToDate(startYear: number): Promise<Check> {
-  let { statutes, judgments } = await dbIsUpToDate(startYear, false)
+  const from = Math.max(startYear, yearTo() - 1)
+  let { statutes, judgments } = await dbIsUpToDate(from, false)
   if (statutes.length + judgments.length > 0) {
     console.log(`[UPDATE] verify: ${statutes.length} statutes, ${judgments.length} judgments still missing, fetching again`)
     await fillDb(statutes, judgments);
-    ({ statutes, judgments } = await dbIsUpToDate(startYear, false))
+    ({ statutes, judgments } = await dbIsUpToDate(from, false))
   }
-  const ok = statutes.length === 0 && judgments.length === 0
+  const ok = statutes.length === 0 && judgments.length <= MAX_MISSING_JUDGMENTS
+  const list = [
+    ...statutes.slice(0, 5).map(s => `${s.year}/${s.number} ${s.language}${s.version ? '@' + s.version : ''}`),
+    ...judgments.slice(0, 5).map(j => `${j.level.toUpperCase()} ${j.year}:${j.number} ${j.language}`),
+  ].join(', ')
   return {
     ok,
-    detail: ok ? 'kaikki Finlexin listaamat lait ja ratkaisut ovat kannassa'
-      : `puuttuu ${statutes.length} lakia ja ${judgments.length} ratkaisua`,
-    missingStatutes: statutes.slice(0, 20).map(s => `${s.year}/${s.number} ${s.language}${s.version ? '@' + s.version : ''}`),
-    missingJudgments: judgments.slice(0, 20).map(j => `${j.level} ${j.year}/${j.number} ${j.language}`),
+    detail: statutes.length + judgments.length === 0
+      ? `vuodet ${from}–${yearTo()}: kaikki Finlexin listaamat lait ja ratkaisut ovat kannassa`
+      : `vuodet ${from}–${yearTo()}: puuttuu ${statutes.length} lakia ja ${judgments.length} ratkaisua (${list})`
+        + (ok ? ' – yksittäinen puuttuva ratkaisu ei estä käyttöönottoa' : ''),
   }
 }
 
