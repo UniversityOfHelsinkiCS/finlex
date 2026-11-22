@@ -17,6 +17,7 @@ import { JSDOM } from 'jsdom';
 import { XMLParser } from 'fast-xml-parser';
 import { getLatestStatuteVersions } from '../util/parse.js';
 import Bottleneck from 'bottleneck';
+import { UpdateCancelledError, throwIfCancelled } from '../util/cancel.js';
 
 const finlexLimiter = new Bottleneck({
   minTime: 350,
@@ -64,6 +65,8 @@ async function fetchWithBackoff<T = unknown>(url: string, config: AxiosRequestCo
 
   let attempt = 0;
   while (true) {
+    // a cancelled update stops at its next Finlex request, also inside an endless listing loop
+    throwIfCancelled();
     try {
       // Schedule on limiter to enforce rate limits
       const resp = await finlexLimiter.schedule(() => axios.get<T>(url, config));
@@ -851,6 +854,7 @@ async function listStatutesByYear(year: number, language: string): Promise<strin
         queryParams.page += 1;
       }
     } catch (error) {
+      if (error instanceof UpdateCancelledError) throw error;
       if (axios.isAxiosError(error)) {
         console.error(`Failed to fetch statute versions for year ${year}, type ${typeStatute}: ${error.message}`);
         if (error.response) {

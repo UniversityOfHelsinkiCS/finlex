@@ -57,12 +57,13 @@ export async function startAttempt(id: number, indexSuffix: string): Promise<Upd
   return rows[0];
 }
 
-// result is merged, not replaced
+// result is merged, not replaced. A finished run (e.g. one cancelled by an admin) is not changed
+// any more, so a runner still busy with it cannot overwrite the cancellation.
 export async function updateRun(id: number, changes: { phase?: UpdatePhase; result?: Record<string, unknown>; finished?: boolean }): Promise<void> {
   await query(
     `UPDATE update_runs SET phase = COALESCE($2, phase), result = result || $3::jsonb, heartbeat_at = now(),
        finished_at = CASE WHEN $4 THEN now() ELSE finished_at END
-     WHERE id = $1`,
+     WHERE id = $1 AND finished_at IS NULL`,
     [id, changes.phase ?? null, JSON.stringify(changes.result ?? {}), changes.finished ?? false],
   );
 }
@@ -86,6 +87,22 @@ export async function releaseRun(id: number, owner: string): Promise<void> {
   await query('UPDATE update_runs SET owner = NULL WHERE id = $1 AND owner = $2', [id, owner]);
 }
 
-export async function heartbeat(id: number): Promise<void> {
-  await query('UPDATE update_runs SET heartbeat_at = now() WHERE id = $1', [id]);
+// Returns false when the run has been finished elsewhere (cancelled by an admin)
+export async function heartbeat(id: number): Promise<boolean> {
+  const { rows } = await query(
+    'UPDATE update_runs SET heartbeat_at = now() WHERE id = $1 AND finished_at IS NULL RETURNING id',
+    [id],
+  );
+  return rows.length > 0;
+}
+
+// Marks the active run cancelled. The runner stops at its next check (see util/cancel.ts).
+export async function cancelRun(id: number): Promise<UpdateRun | null> {
+  const { rows } = await query(
+    `UPDATE update_runs SET phase = 'failed', finished_at = now(), owner = NULL,
+       result = result || $2::jsonb
+     WHERE id = $1 AND finished_at IS NULL RETURNING ${COLUMNS}`,
+    [id, JSON.stringify({ cancelled: true, error: 'Keskeytetty admin-sivulta', retryAfter: null })],
+  );
+  return rows[0] ?? null;
 }

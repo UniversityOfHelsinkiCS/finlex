@@ -23,12 +23,18 @@ interface UpdateRun {
   trigger: 'schedule' | 'manual' | 'rebuild'
   phase: 'fetch' | 'index' | 'verify' | 'swap' | 'done' | 'failed'
   attempts: number
-  result: { ok?: boolean, error?: string | null, retryAfter?: string | null, checks?: Record<string, RunCheck> }
+  result: { ok?: boolean, cancelled?: boolean, error?: string | null, retryAfter?: string | null, checks?: Record<string, RunCheck> }
   started_at: string | null
   finished_at: string | null
 }
 
-interface RunsResponse { runs: UpdateRun[], scheduleEnabled: boolean, nextRun: string | null }
+interface RunsResponse {
+  runs: UpdateRun[]
+  scheduleAvailable?: boolean // the weekly update exists in this environment (UPDATE_SCHEDULER)
+  schedulePaused?: boolean // paused from this page
+  scheduleEnabled: boolean
+  nextRun: string | null
+}
 
 const isActive = (r: UpdateRun) => r.phase !== 'done' && r.phase !== 'failed'
 
@@ -71,6 +77,14 @@ const HELP = {
     labelFin: 'Uudelleen rakenna Typesense', labelSwe: 'Bygga om Typesense',
     fin: 'Rakentaa sivuston hakukoneen (Typesense) hakemiston uudelleen tietokannassa jo olevista asiakirjoista. Ei hae mitään Finlexistä. Tarvitaan vain, jos haku antaa puuttuvia tai vääriä tuloksia, vaikka asiakirjat näkyvät oikein. Uusi hakemisto rakennetaan vanhan rinnalle, joten haku toimii koko ajan; se otetaan käyttöön vasta tarkistusten jälkeen. Päivitä-nappi tekee tämän automaattisesti.',
     swe: 'Bygger om sökmotorns (Typesense) index från dokumenten i databasen. Hämtar inget från Finlex. Behövs endast om sökningen ger felaktiga resultat. Uppdatera gör detta automatiskt.',
+  },
+  cancel: {
+    fin: 'Pysäyttää käynnissä olevan päivityksen tai hakuindeksin rakennuksen. Jo haetut lait ja tuomiot säilyvät tietokannassa, ja haku jatkaa vanhalla indeksillä; keskeneräinen uusi indeksi poistetaan. Pysähtyy yleensä heti, viimeistään noin minuutin kuluttua. Ajoa ei yritetä uudelleen.',
+    swe: 'Stoppar den pågående uppdateringen. Redan hämtade dokument behålls och sökningen fortsätter med det gamla indexet.',
+  },
+  schedule: {
+    fin: 'Ottaa viikoittaisen automaattisen päivityksen (perjantaisin klo 23.55) pois käytöstä tai takaisin käyttöön. Asetus säilyy palvelimen uudelleenkäynnistyksissä. Ei vaikuta jo käynnissä olevaan päivitykseen eikä Päivitä-nappiin.',
+    swe: 'Stänger av eller sätter på den veckovisa automatiska uppdateringen. Påverkar inte en pågående uppdatering.',
   },
   startYear: {
     labelFin: 'Aloitusvuosi', labelSwe: 'Startår',
@@ -127,6 +141,12 @@ const describeStatus = (entry: StatusEntry, language: string): { tone: StatusTon
       title: fi ? `❌ Päivitys epäonnistui ${when}` : `❌ Uppdateringen misslyckades ${when}`,
       detail: (d.error ? `${d.error}. ` : '') + (fi ? 'Paina Päivitä uudelleen: jo haetut lait säilyvät ja päivitys jatkaa puuttuvista.' : 'Tryck Uppdatera igen.'),
     }
+  case 'update_cancelled':
+    return {
+      tone: 'warning',
+      title: fi ? `⏹ Päivitys keskeytetty ${when}` : `⏹ Uppdateringen avbröts ${when}`,
+      detail: fi ? 'Jo haetut asiakirjat säilyivät. Haku toimii vanhalla indeksillä.' : 'Redan hämtade dokument behölls.',
+    }
   case 'server_started':
     return {
       tone: 'warning',
@@ -169,6 +189,8 @@ const AdminPage = ({ language }: AdminPageProps) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const [defaultStartYear, setDefaultStartYear] = useState<number | null>(null)
   const [runsInfo, setRunsInfo] = useState<RunsResponse | null>(null)
+  const [isCancelling, setIsCancelling] = useState(false)
+  const [isTogglingSchedule, setIsTogglingSchedule] = useState(false)
   const activeRun = runsInfo?.runs.find(isActive) ?? null
   const busy = !!latestStatus?.updating || !!activeRun
 
@@ -295,6 +317,56 @@ const AdminPage = ({ language }: AdminPageProps) => {
         : 'Uppdatering misslyckades. Kontrollera konsolen för mer information.'
       )
       setIsUpdating(false)
+    }
+  }
+
+  const handleCancelUpdate = async () => {
+    const fi = language === 'fin'
+    if (!window.confirm(fi ? 'Keskeytetäänkö käynnissä oleva päivitys? Jo haetut asiakirjat säilyvät.' : 'Avbryta den pågående uppdateringen?')) return
+    setIsCancelling(true)
+    setMessage('')
+    setError('')
+    try {
+      const token = localStorage.getItem('adminToken')
+      await axios.post('/api/admin/cancel-update', {}, { headers: { 'Authorization': `Bearer ${token}` } })
+      setMessage(fi ? 'Päivitys keskeytetty.' : 'Uppdateringen avbröts.')
+      setIsUpdating(false)
+      setIsRebuilding(false)
+      setHasStartedUpdate(false)
+      setHasStartedRebuild(false)
+      stopPolling()
+    } catch (err) {
+      console.error('Cancel failed:', err)
+      if (axios.isAxiosError(err) && (err.response?.status === 404 || err.response?.status === 409)) {
+        setError(fi ? 'Päivitys ei ollut enää käynnissä.' : 'Ingen uppdatering pågick.')
+      } else {
+        setError(fi ? 'Keskeytys epäonnistui. Tarkista konsoli lisätiedoille.' : 'Avbrytningen misslyckades.')
+      }
+    } finally {
+      setIsCancelling(false)
+      pollLatestStatus()
+    }
+  }
+
+  const handleToggleSchedule = async () => {
+    if (!runsInfo) return
+    const fi = language === 'fin'
+    const enable = !!runsInfo.schedulePaused
+    setIsTogglingSchedule(true)
+    setMessage('')
+    setError('')
+    try {
+      const token = localStorage.getItem('adminToken')
+      await axios.post('/api/admin/schedule', { enabled: enable }, { headers: { 'Authorization': `Bearer ${token}` } })
+      setMessage(enable
+        ? (fi ? 'Ajastettu päivitys otettu käyttöön.' : 'Schemalagd uppdatering påslagen.')
+        : (fi ? 'Ajastettu päivitys otettu pois käytöstä.' : 'Schemalagd uppdatering avstängd.'))
+    } catch (err) {
+      console.error('Schedule toggle failed:', err)
+      setError(fi ? 'Ajastuksen muuttaminen epäonnistui.' : 'Det gick inte att ändra schemat.')
+    } finally {
+      setIsTogglingSchedule(false)
+      pollLatestStatus()
     }
   }
 
@@ -428,7 +500,9 @@ const AdminPage = ({ language }: AdminPageProps) => {
     setHasStartedRebuild(false)
     stopPolling()
     const fi = language === 'fin'
-    if (last.phase === 'done') {
+    if (last.result?.cancelled) {
+      setMessage(fi ? 'Päivitys keskeytetty.' : 'Uppdateringen avbröts.')
+    } else if (last.phase === 'done') {
       setMessage(fi ? 'Valmis: kaikki tarkistukset menivät läpi.' : 'Klart: alla kontroller godkända.')
     } else {
       setError(fi ? 'Ajo päättyi, mutta jokin tarkistus epäonnistui. Katso tulokset alta.' : 'Körningen slutade men en kontroll misslyckades.')
@@ -697,6 +771,16 @@ const AdminPage = ({ language }: AdminPageProps) => {
               <div style={{ fontSize: '14px', marginTop: '4px' }}>
                 {language === 'fin' ? 'Napit ovat pois käytöstä, kunnes päivitys on valmis. Haku toimii koko ajan.' : 'Knapparna är inaktiverade tills uppdateringen är klar.'}
               </div>
+              <button
+                style={{ ...buttonStyle, backgroundColor: '#c62828', marginTop: '10px' }}
+                onClick={handleCancelUpdate}
+                title={language === 'fin' ? HELP.cancel.fin : HELP.cancel.swe}
+                disabled={isCancelling}
+              >
+                {isCancelling
+                  ? (language === 'fin' ? 'Keskeytetään...' : 'Avbryter...')
+                  : (language === 'fin' ? 'Keskeytä päivitys' : 'Avbryt uppdateringen')}
+              </button>
             </div>
           )}
 
@@ -719,7 +803,22 @@ const AdminPage = ({ language }: AdminPageProps) => {
                   <strong>{fi ? 'Seuraava ajastettu päivitys: ' : 'Nästa schemalagda uppdatering: '}</strong>
                   {runsInfo.scheduleEnabled && runsInfo.nextRun
                     ? new Date(runsInfo.nextRun).toLocaleString(fi ? 'fi-FI' : 'sv-FI')
-                    : (fi ? 'ei käytössä tässä ympäristössä' : 'inte i bruk')}
+                    : runsInfo.schedulePaused
+                      ? (fi ? 'pois käytöstä (otettu pois tältä sivulta)' : 'avstängd')
+                      : (fi ? 'ei käytössä tässä ympäristössä' : 'inte i bruk')}
+                  {(runsInfo.scheduleAvailable ?? runsInfo.scheduleEnabled) && (
+                    <button
+                      style={{ ...buttonStyle, padding: '4px 12px', fontSize: '13px', marginLeft: '10px',
+                        backgroundColor: runsInfo.schedulePaused ? '#2e7d32' : '#666' }}
+                      onClick={handleToggleSchedule}
+                      title={fi ? HELP.schedule.fin : HELP.schedule.swe}
+                      disabled={isTogglingSchedule}
+                    >
+                      {runsInfo.schedulePaused
+                        ? (fi ? 'Ota ajastus käyttöön' : 'Slå på schemat')
+                        : (fi ? 'Ota ajastus pois käytöstä' : 'Stäng av schemat')}
+                    </button>
+                  )}
                 </div>
                 {last && (
                   <div style={{ marginTop: '6px' }}>

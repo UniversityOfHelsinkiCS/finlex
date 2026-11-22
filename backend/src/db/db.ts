@@ -6,6 +6,7 @@ import { StatuteKey } from '../types/statute.js';
 import { JudgmentKey } from '../types/judgment.js';
 import { syncJudgments, syncStatutes } from '../search.js';
 import { yearFrom, yearTo } from '../util/config.js';
+import { UpdateCancelledError, throwIfCancelled } from '../util/cancel.js';
 
 let pool: Pool;
 
@@ -20,6 +21,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
   try {
     let i = 0;
     for (const key of statutes) {
+      throwIfCancelled();
       ++i;
       const statuteUrls = buildFinlexUrl(key)
       await setSingleStatute(statuteUrls);
@@ -31,6 +33,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 
     i = 0;
     for (const key of judgments) {
+      throwIfCancelled();
       ++i;
       await setSingleJudgment(buildJudgmentUrl(key));
       if (i % 100 === 0) {
@@ -41,6 +44,7 @@ async function fillDb(statutes: StatuteKey[], judgments: JudgmentKey[]): Promise
 
     console.log("Database is filled")
   } catch (error) {
+    if (error instanceof UpdateCancelledError) throw error;
     console.error('Error filling database:', error);
     Sentry.captureException(error);
     throw error;
@@ -201,6 +205,7 @@ async function dbIsUpToDate(startYear?: number, refreshRecent = true): Promise<{
     const currentYear = yearTo()
     const start = startYear ?? yearFrom()
     for (let year = start; year <= currentYear + 1; year++) {
+      throwIfCancelled();
 
       // compare versions, not just counts: a new consolidated version does not change the count
       const missingStatutes = await findMissingStatutes(year);
@@ -220,6 +225,7 @@ async function dbIsUpToDate(startYear?: number, refreshRecent = true): Promise<{
     return { upToDate, statutes, judgments };
 
   } catch (error) {
+    if (error instanceof UpdateCancelledError) throw error;
     console.error('Error checking if database is up to date:', error);
     Sentry.captureException(error);
     throw error;
@@ -344,6 +350,13 @@ async function createTables(): Promise<void> {
       )
     `);
     await client.query(`ALTER TABLE update_runs ADD COLUMN IF NOT EXISTS owner TEXT`);
+    // settings an admin can change at runtime, e.g. { key: 'schedule_paused', value: true }
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value JSONB NOT NULL
+      )
+    `);
     await client.query(`
       CREATE TABLE IF NOT EXISTS map_image_statute (
         statute_uuid UUID references statutes(uuid) ON DELETE CASCADE,

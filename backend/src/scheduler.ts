@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/node'
 import os from 'os'
 import { randomUUID } from 'crypto'
 import { insertRun, getActiveRun, claimRun, releaseRun, UpdateRun } from './db/models/updateRun.js'
+import { getSetting, setSetting } from './db/models/setting.js'
 import { runUpdate } from './updateRunner.js'
 import { lastScheduledTime, nextScheduledTime, parseSchedule } from './util/schedule.js'
 
@@ -20,8 +21,17 @@ const OWNER = `${os.hostname()}:${process.pid}:${randomUUID().slice(0, 8)}`
 let running = false
 let timer: NodeJS.Timeout | null = null
 
+// Whether this environment runs the weekly update at all (UPDATE_SCHEDULER, on by default in production)
 export const schedulerEnabled = () =>
   process.env.UPDATE_SCHEDULER === 'on' || (process.env.NODE_ENV === 'production' && process.env.UPDATE_SCHEDULER !== 'off')
+
+// An admin can pause the weekly update from the admin page; stored in the database so it survives restarts
+const PAUSE_KEY = 'schedule_paused'
+export const isSchedulePaused = async () => (await getSetting<boolean>(PAUSE_KEY)) === true
+export const setSchedulePaused = (paused: boolean) => setSetting(PAUSE_KEY, paused)
+
+// Weekly update enabled in this environment and not paused by an admin
+export const scheduleActive = async () => schedulerEnabled() && !(await isSchedulePaused())
 
 export const nextRunTime = (now = new Date()) => nextScheduledTime(now, SCHEDULE)
 
@@ -41,7 +51,7 @@ export function kickScheduler(): void {
 export async function tick(now = new Date()): Promise<void> {
   if (running) return
   try {
-    if (schedulerEnabled()) {
+    if (await scheduleActive()) {
       const slot = lastScheduledTime(now, SCHEDULE)
       if (now.getTime() - slot.getTime() < CATCH_UP_MS) {
         const created = await insertRun(slot, 'schedule', null)

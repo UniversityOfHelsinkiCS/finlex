@@ -13,5 +13,11 @@ RUN npm --prefix ./backend run build
 
 COPY . .
 
+# set by the release workflow; shown in /api/health so the deployed version can be checked
+ARG GIT_SHA=unknown
+ARG RELEASE=dev
+ARG BUILT_AT=unknown
+ENV GIT_SHA=$GIT_SHA RELEASE=$RELEASE BUILT_AT=$BUILT_AT
+
 WORKDIR /app/backend
 CMD ["npm", "start"]

@@ -21,6 +21,10 @@ jobs:
       
       - name: Build and push the Docker image
         run: |-
-           docker build -t registry.version.helsinki.fi/toska/openshift/kontit/finlex:production .
+           docker build \
+             --build-arg GIT_SHA=${{ github.sha }} \
+             --build-arg RELEASE=${{ github.event.release.tag_name }} \
+             --build-arg BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+             -t registry.version.helsinki.fi/toska/openshift/kontit/finlex:production .
            docker push registry.version.helsinki.fi/toska/openshift/kontit/finlex:production
 

@@ -17,6 +17,7 @@ import {
 } from "./util/dropwords.js"
 import { JSDOM } from "jsdom"
 import { yearFrom, yearTo } from "./util/config.js"
+import { throwIfCancelled } from "./util/cancel.js"
 import { getCommonNamesByStatuteUuid } from "./db/models/commonName.js"
 import {
   getJudgmentKeywordsByJudgmentUuid,
@@ -456,6 +457,7 @@ export async function syncStatutes(
   let totalProcessed = 0
 
   for (let year = startYear; year <= endYear; year++) {
+    throwIfCancelled()
     console.log("syncStatutes " + lang + " " + year)
 
     const { rows } = await query(
@@ -572,6 +574,7 @@ export async function syncJudgments(
   let totalProcessed = 0
 
   for (let year = startYear; year <= endYear; year++) {
+    throwIfCancelled()
     const { rows } = await query(
       `
       SELECT

@@ -8,8 +8,10 @@ import judgmentRouter from './controllers/judgment.js';
 import keywordRouter from './controllers/keyword.js';
 import judgmentKeywordRouter from './controllers/judgmentKeyword.js';
 import { fileURLToPath } from 'url';
-import { insertRun, getActiveRun, listRuns, UpdateRun } from './db/models/updateRun.js';
-import { kickScheduler, schedulerEnabled, nextRunTime } from './scheduler.js';
+import { insertRun, getActiveRun, listRuns, cancelRun, UpdateRun } from './db/models/updateRun.js';
+import { kickScheduler, schedulerEnabled, nextRunTime, isSchedulePaused, setSchedulePaused, isUpdateRunning } from './scheduler.js';
+import { requestCancel } from './util/cancel.js';
+import { versionInfo } from './util/version.js';
 import { getLatestStatusEntry, getAllStatusEntries, clearAllStatusEntries } from './db/models/status.js';
 import { addStatusRow, createTables, dropTables, dropJudgmentsTables, createJudgmentsTables, deleteStatutesByYear, normalizeStatuteTitlesByYear, backfillIsInForce } from './db/db.js';
 import { VALID_LANGUAGES, yearFrom, yearTo } from './util/config.js';
@@ -149,7 +151,9 @@ app.get('/api/health', async (_req: express.Request, res: express.Response): Pro
   }
   const typesense = await typesenseHealth()
   let db: Record<string, unknown>
+  let paused = false
   try {
+    paused = await isSchedulePaused()
     const runs = await listRuns(5)
     const latest = await getLatestStatusEntry()
     db = {
@@ -166,8 +170,10 @@ app.get('/api/health', async (_req: express.Request, res: express.Response): Pro
   res.status(ok ? 200 : 503).json({
     ok,
     time: new Date().toISOString(),
-    scheduleEnabled: schedulerEnabled(),
-    nextRun: schedulerEnabled() ? nextRunTime().toISOString() : null,
+    version: versionInfo(),
+    scheduleEnabled: schedulerEnabled() && !paused,
+    schedulePaused: paused,
+    nextRun: schedulerEnabled() && !paused ? nextRunTime().toISOString() : null,
     typesense,
     ...db,
   })
@@ -175,14 +181,67 @@ app.get('/api/health', async (_req: express.Request, res: express.Response): Pro
 
 app.get('/api/update-runs', verifyAdminToken, async (_req: express.Request, res: express.Response): Promise<void> => {
   try {
+    const paused = await isSchedulePaused();
     res.json({
       runs: await listRuns(5),
-      scheduleEnabled: schedulerEnabled(),
-      nextRun: schedulerEnabled() ? nextRunTime().toISOString() : null,
+      scheduleAvailable: schedulerEnabled(),
+      schedulePaused: paused,
+      scheduleEnabled: schedulerEnabled() && !paused,
+      nextRun: schedulerEnabled() && !paused ? nextRunTime().toISOString() : null,
     });
   } catch (error) {
     Sentry.captureException(error);
     res.status(500).json({ error: 'Failed to list update runs' });
+  }
+});
+
+// Cancels the running update (scheduled, manual or index rebuild). The run is marked failed at
+// once; the runner stops at its next Finlex request or loop step (within a minute when another
+// process runs it). Documents already fetched stay in the database and the live index is untouched.
+app.post('/api/admin/cancel-update', verifyAdminToken, async (_req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const active = await getActiveRun();
+    if (!active) {
+      res.status(404).json({ error: 'No update is running' });
+      return;
+    }
+    const cancelled = await cancelRun(active.id);
+    if (!cancelled) {
+      res.status(409).json({ error: 'The update finished before it could be cancelled' });
+      return;
+    }
+    if (isUpdateRunning()) requestCancel();
+    await addStatusRow({ message: 'update_cancelled', runId: active.id, trigger: active.trigger, timestamp: new Date().toISOString() }, false);
+    console.log(`[UPDATE] run ${active.id} cancelled from the admin page`);
+    res.json({ status: 'cancelled', runId: active.id });
+  } catch (error) {
+    Sentry.captureException(error);
+    console.error('[CANCEL] cancel-update error:', error);
+    res.status(500).json({ error: 'Failed to cancel the update' });
+  }
+});
+
+// Pauses or resumes the weekly scheduled update; stored in the database, so it survives restarts.
+// Does not touch a run that is already in progress (use cancel-update for that).
+app.post('/api/admin/schedule', verifyAdminToken, async (req: express.Request, res: express.Response): Promise<void> => {
+  try {
+    const enabled = (req.body ?? {}).enabled;
+    if (typeof enabled !== 'boolean') {
+      res.status(400).json({ error: 'enabled (boolean) is required' });
+      return;
+    }
+    await setSchedulePaused(!enabled);
+    console.log(`[SCHEDULER] weekly update ${enabled ? 'resumed' : 'paused'} from the admin page`);
+    res.json({
+      scheduleAvailable: schedulerEnabled(),
+      schedulePaused: !enabled,
+      scheduleEnabled: schedulerEnabled() && enabled,
+      nextRun: schedulerEnabled() && enabled ? nextRunTime().toISOString() : null,
+    });
+  } catch (error) {
+    Sentry.captureException(error);
+    console.error('[SCHEDULE] schedule toggle error:', error);
+    res.status(500).json({ error: 'Failed to change the schedule' });
   }
 });
 

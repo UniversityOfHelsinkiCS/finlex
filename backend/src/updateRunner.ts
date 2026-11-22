@@ -7,6 +7,7 @@ import {
 } from './search.js'
 import { compareYear, isCosmeticHunk, StatuteComparison } from './util/statuteCompare.js'
 import { yearFrom, yearTo } from './util/config.js'
+import { UpdateCancelledError, requestCancel, resetCancel, throwIfCancelled } from './util/cancel.js'
 
 // Runs one update from its stored phase to the end: fetch → index → verify → swap.
 // Every phase can be started again after a restart: fetch skips what is already up to date,
@@ -23,7 +24,11 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
   const run = await startAttempt(initial.id, `run${initial.id}`)
   const suffix = run.index_suffix as string
   const startYear = run.start_year ?? yearFrom()
-  const beat = setInterval(() => { heartbeat(run.id).catch(() => {}) }, 60_000)
+  resetCancel()
+  // a run cancelled from another process (or before a restart) is noticed here within a minute
+  const beat = setInterval(() => {
+    heartbeat(run.id).then(alive => { if (!alive) requestCancel() }).catch(() => {})
+  }, 60_000)
   console.log(`[UPDATE] run ${run.id} (${run.trigger}) attempt ${run.attempts}, phase ${run.phase}`)
 
   try {
@@ -35,6 +40,7 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
       const { statutes, judgments } = await dbIsUpToDate(startYear)
       console.log(`[UPDATE] fetching ${statutes.length} statutes, ${judgments.length} judgments`)
       await fillDb(statutes, judgments)
+      throwIfCancelled()
       phase = 'index'
       await updateRun(run.id, { phase, result: { fetched: { statutes: statutes.length, judgments: judgments.length } } })
       // the database is current again; the site works normally while the index is built
@@ -55,6 +61,7 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
           processed: r.totalProcessed, failed: r.failureCount,
           failures: r.failures.slice(0, 10).map(f => `${f.year}/${f.number}: ${f.error}`),
         }
+        throwIfCancelled()
         await heartbeat(run.id)
       }
       phase = 'verify'
@@ -64,6 +71,7 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
     if (phase === 'verify') {
       await addStatusRow({ message: 'verifying', runId: run.id }, false)
       const checks = await verify(suffix, startYear)
+      throwIfCancelled()
       const indexOk = checks.indexCounts.ok && checks.search.ok
       phase = indexOk ? 'swap' : 'failed'
       await updateRun(run.id, { phase, result: { checks } })
@@ -75,6 +83,7 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
     }
 
     if (phase === 'swap') {
+      throwIfCancelled()
       for (const k of INDEXES) await swapIndex(k, suffix)
       // collections no alias points to any more (e.g. left over from an interrupted swap)
       await dropOrphanIndexes(suffix)
@@ -84,6 +93,12 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
       return await finish(run, Object.values(checks).every(c => c.ok), checks)
     }
   } catch (error) {
+    if (error instanceof UpdateCancelledError) {
+      // the run is already marked failed (cancelRun); only the half-built index is cleaned up
+      console.log(`[UPDATE] run ${run.id} cancelled by admin`)
+      await dropOrphanIndexes().catch(e => console.error('[UPDATE] cleanup after cancel failed:', e))
+      return
+    }
     const message = error instanceof Error ? error.message : String(error)
     console.error(`[UPDATE] run ${run.id} failed in attempt ${run.attempts}:`, error)
     Sentry.captureException(error)
@@ -97,6 +112,7 @@ export async function runUpdate(initial: UpdateRun): Promise<void> {
     }
   } finally {
     clearInterval(beat)
+    resetCancel()
   }
 }
 
